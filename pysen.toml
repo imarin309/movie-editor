@@ -1,0 +1,20 @@
+[tool.pysen]
+version = "0.11"
+
+[tool.pysen.lint]
+enable_black = true
+enable_flake8 = true
+enable_isort = true
+enable_mypy = true
+py_version = "py312"
+
+[[tool.pysen.lint.mypy_targets]]
+paths = ["src/"]
+
+[tool.pysen.lint.source]
+includes = ["."]
+include_globs = ["**/*.py"]
+excludes = [".venv", "venv", "__pycache__", ".git", "*.egg-info"]
+
+[tool.pysen-cli]
+settings_dir = "."
