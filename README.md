@@ -9,7 +9,7 @@ poetry install
 ## use
 
 ```
-python command.py {imput_movie_path} {output_movie_path}
+poetry run python command.py {input_movie_path}
 ```
 
 ## 実行されること

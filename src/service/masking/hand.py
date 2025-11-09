@@ -11,15 +11,18 @@ def detect_hands_mask(
     fps_sample: int,
     min_conf: float,
     min_area_ratio: float,
-    debug_draw: bool = False,
-    debug_out: Optional[str] = None,
 ) -> Tuple[List[bool], float]:
     """
     動画を読み、フレームごとに「手が検出されたか」を True/False で返す。
     - fps_sample で解析（元動画 FPS と異なっても OK、マスクは fps_sample 基準で返す）
     - min_conf を下回る検出は無視
-    - 手のバウンディングボックス面積が画面に対し min_area_ratio 未満ならノイズ扱い
+    - 手全体のバウンディングボックスを計算して判定
     - ROI は使わず、画面全体で判定
+    - min_area_ratio で小さすぎる検出を除外
+
+    Returns:
+        mask: 各フレームの手の検出結果（True/False）のリスト
+        eff_fps: 実効FPS
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -44,12 +47,6 @@ def detect_hands_mask(
 
     mask: List[bool] = []
 
-    # デバッグ動画出力
-    dbg_writer = None
-    if debug_draw and debug_out:
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
-        dbg_writer = cv2.VideoWriter(debug_out, fourcc, eff_fps, (width, height))
-
     with hands:
         idx = 0
         pbar = tqdm(
@@ -70,45 +67,246 @@ def detect_hands_mask(
             has_hand = False
             if result.multi_hand_landmarks and result.multi_handedness:
                 for hand_landmarks in result.multi_hand_landmarks:
-                    xs = [lm.x for lm in hand_landmarks.landmark]
-                    ys = [lm.y for lm in hand_landmarks.landmark]
-                    minx, maxx = min(xs), max(xs)
-                    miny, maxy = min(ys), max(ys)
+                    # 手全体のバウンディングボックスを計算
+                    x_coords = [lm.x for lm in hand_landmarks.landmark]
+                    y_coords = [lm.y for lm in hand_landmarks.landmark]
 
-                    # 画像座標系へ
-                    bx1 = int(minx * width)
-                    by1 = int(miny * height)
-                    bx2 = int(maxx * width)
-                    by2 = int(maxy * height)
-                    bw = max(1, bx2 - bx1)
-                    bh = max(1, by2 - by1)
-                    area_ratio = (bw * bh) / float(width * height)
+                    x_min, x_max = min(x_coords), max(x_coords)
+                    y_min, y_max = min(y_coords), max(y_coords)
 
-                    if area_ratio >= min_area_ratio:
+                    # バウンディングボックスの面積比を計算
+                    bbox_width = x_max - x_min
+                    bbox_height = y_max - y_min
+                    bbox_area = bbox_width * bbox_height
+
+                    # 面積比が閾値以上なら手として検出
+                    if bbox_area >= min_area_ratio:
                         has_hand = True
                         break  # 1つでも十分
 
             mask.append(has_hand)
-
-            if dbg_writer is not None:
-                # 可視化（単純にKEEP/CUTをオーバーレイ）
-                cv2.putText(
-                    frame,
-                    f"{'KEEP' if has_hand else 'CUT'}",
-                    (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
-                    (0, 255, 0) if has_hand else (0, 0, 255),
-                    2,
-                )
-                dbg_writer.write(frame)
 
             pbar.update(1)
             idx += 1
 
         pbar.close()
     cap.release()
-    if dbg_writer is not None:
-        dbg_writer.release()
 
     return mask, eff_fps
+
+
+def detect_hands_position_and_size(
+    video_path: str,
+    fps_sample: int,
+    min_conf: float,
+    min_area_ratio: float,
+) -> Tuple[List[Optional[Tuple[float, float]]], List[Optional[Tuple[float, float]]], float]:
+    """
+    動画を読み、フレームごとに手の中心座標とサイズを返す。
+    - fps_sample で解析
+    - 手が検出されない場合は None を返す
+    - 複数の手が検出された場合は最初の手の座標を使用
+    - 座標とサイズは正規化された値 (0.0-1.0)
+    - 手全体のバウンディングボックスから中心とサイズを計算
+    - min_area_ratio で小さすぎる検出を除外
+
+    Returns:
+        positions: 各フレームの手の中心座標 (x, y) のリスト。検出されない場合は None
+        sizes: 各フレームの手のサイズ (width, height) のリスト。検出されない場合は None
+        eff_fps: 実効FPS
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # 解析間引き
+    step = max(1, int(round(orig_fps / fps_sample))) if orig_fps and orig_fps > 0 else 1
+    eff_fps = (orig_fps / step) if orig_fps and orig_fps > 0 else fps_sample
+
+    mp_hands = mp.solutions.hands
+    hands = mp_hands.Hands(
+        static_image_mode=False,
+        max_num_hands=2,
+        min_detection_confidence=min_conf,
+        min_tracking_confidence=min_conf,
+    )
+
+    positions: List[Optional[Tuple[float, float]]] = []
+    sizes: List[Optional[Tuple[float, float]]] = []
+
+    with hands:
+        idx = 0
+        pbar = tqdm(
+            total=math.ceil(total_frames / step), desc="Detecting hand positions", unit="f"
+        )
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            if idx % step != 0:
+                idx += 1
+                continue
+
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result = hands.process(rgb)
+
+            hand_pos = None
+            hand_size = None
+            if result.multi_hand_landmarks and result.multi_handedness:
+                # 複数の手が検出された場合は、最も右側（x座標が大きい）手を使用
+                best_hand = None
+                best_center_x = -1
+
+                for hand_landmarks in result.multi_hand_landmarks:
+                    # 手全体のバウンディングボックスを計算
+                    x_coords = [lm.x for lm in hand_landmarks.landmark]
+                    y_coords = [lm.y for lm in hand_landmarks.landmark]
+
+                    x_min, x_max = min(x_coords), max(x_coords)
+                    y_min, y_max = min(y_coords), max(y_coords)
+
+                    # バウンディングボックスの面積比を計算
+                    bbox_width = x_max - x_min
+                    bbox_height = y_max - y_min
+                    bbox_area = bbox_width * bbox_height
+
+                    # 面積比が閾値以上の手のみを候補とする
+                    if bbox_area >= min_area_ratio:
+                        center_x = (x_min + x_max) / 2
+
+                        # より右側の手を選択
+                        if center_x > best_center_x:
+                            best_center_x = center_x
+                            best_hand = {
+                                "center": ((x_min + x_max) / 2, (y_min + y_max) / 2),
+                                "size": (bbox_width, bbox_height)
+                            }
+
+                # 有効な手が見つかった場合のみ設定
+                if best_hand is not None:
+                    hand_pos = best_hand["center"]
+                    hand_size = best_hand["size"]
+
+            positions.append(hand_pos)
+            sizes.append(hand_size)
+            pbar.update(1)
+            idx += 1
+
+        pbar.close()
+    cap.release()
+
+    return positions, sizes, eff_fps
+
+
+def detect_hands_position(
+    video_path: str,
+    fps_sample: int,
+    min_conf: float,
+    min_area_ratio: float,
+) -> Tuple[List[Optional[Tuple[float, float]]], float]:
+    """
+    動画を読み、フレームごとに手の中心座標を返す。
+    - fps_sample で解析
+    - 手が検出されない場合は None を返す
+    - 複数の手が検出された場合は最初の手の座標を使用
+    - 座標は正規化された値 (0.0-1.0)
+
+    Returns:
+        positions: 各フレームの手の中心座標 (x, y) のリスト。検出されない場合は None
+        eff_fps: 実効FPS
+    """
+    positions, _, eff_fps = detect_hands_position_and_size(
+        video_path, fps_sample, min_conf, min_area_ratio
+    )
+    return positions, eff_fps
+
+
+def calculate_auto_zoom_ratio(
+    sizes: List[Optional[Tuple[float, float]]],
+    target_hand_ratio: float = 0.25,
+) -> float:
+    """
+    手のサイズから自動的にズーム率を計算する。
+    手が画面の一定割合（デフォルト1/4）を占めるようにズーム率を決定する。
+
+    Args:
+        sizes: 各フレームの手のサイズ (width, height) のリスト
+        target_hand_ratio: 手が占める目標の画面比率（0.25 = 1/4）
+
+    Returns:
+        計算されたズーム率（crop_zoom_ratio）
+    """
+    # 有効な手のサイズを抽出（面積で評価）
+    valid_areas = []
+    for size in sizes:
+        if size is not None:
+            width, height = size
+            area = width * height
+            valid_areas.append(area)
+
+    if not valid_areas:
+        # 手が検出されなかった場合はデフォルト値を返す
+        return 0.5
+
+    # 中央値を使用（外れ値の影響を軽減）
+    valid_areas.sort()
+    median_area = valid_areas[len(valid_areas) // 2]
+
+    # 手が target_hand_ratio を占めるようにズーム率を計算
+    # median_area / crop_ratio^2 = target_hand_ratio
+    # crop_ratio^2 = median_area / target_hand_ratio
+    # crop_ratio = sqrt(median_area / target_hand_ratio)
+    crop_ratio = math.sqrt(median_area / target_hand_ratio)
+
+    # ズーム率を合理的な範囲に制限（0.2 ~ 0.9）
+    # 0.2 = 5倍ズーム、0.9 = 約1.1倍ズーム
+    crop_ratio = max(0.2, min(0.9, crop_ratio))
+
+    return crop_ratio
+
+
+def smooth_positions(
+    positions: List[Optional[Tuple[float, float]]],
+    window_size: int = 5,
+) -> List[Optional[Tuple[float, float]]]:
+    """
+    手の位置をスムージングする（移動平均）。
+
+    Args:
+        positions: 手の位置のリスト（None は手が検出されなかったフレーム）
+        window_size: 移動平均のウィンドウサイズ
+
+    Returns:
+        スムージングされた位置のリスト
+    """
+    smoothed: List[Optional[Tuple[float, float]]] = []
+
+    for i, pos in enumerate(positions):
+        if pos is None:
+            smoothed.append(None)
+            continue
+
+        # ウィンドウ内の有効な位置を収集
+        valid_positions = []
+        start_idx = max(0, i - window_size // 2)
+        end_idx = min(len(positions), i + window_size // 2 + 1)
+
+        for j in range(start_idx, end_idx):
+            if positions[j] is not None:
+                valid_positions.append(positions[j])
+
+        if valid_positions:
+            # 平均を計算
+            avg_x = sum(p[0] for p in valid_positions) / len(valid_positions)
+            avg_y = sum(p[1] for p in valid_positions) / len(valid_positions)
+            smoothed.append((avg_x, avg_y))
+        else:
+            smoothed.append(pos)
+
+    return smoothed
