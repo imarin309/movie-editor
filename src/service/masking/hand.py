@@ -1,111 +1,13 @@
 import math
-from dataclasses import dataclass
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import cv2
 import mediapipe as mp
 from tqdm import tqdm
 
-
-@dataclass
-class _VideoMetadata:
-    """動画のメタデータを保持するデータクラス"""
-
-    width: int
-    height: int
-    orig_fps: float
-    total_frames: int
-
-
-@dataclass
-class _HandBoundingBox:
-    """手のバウンディングボックス情報"""
-
-    x_min: float
-    y_min: float
-    x_max: float
-    y_max: float
-    width: float
-    height: float
-    area: float
-    center_x: float
-    center_y: float
-
-
-def _setup_video_capture(video_path: str) -> Tuple[cv2.VideoCapture, _VideoMetadata]:
-    """
-    VideoCaptureを初期化し、動画のメタデータを取得する。
-
-    Args:
-        video_path: 動画ファイルのパス
-
-    Returns:
-        初期化されたVideoCaptureオブジェクトとメタデータ
-
-    Raises:
-        RuntimeError: 動画を開けない場合
-    """
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open video: {video_path}")
-
-    metadata = _VideoMetadata(
-        width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-        height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-        orig_fps=cap.get(cv2.CAP_PROP_FPS),
-        total_frames=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
-    )
-
-    return cap, metadata
-
-
-def _calculate_sampling(orig_fps: float, fps_sample: int) -> Tuple[int, float]:
-    """
-    フレームサンプリングのステップと実効FPSを計算する。
-
-    Args:
-        orig_fps: 元動画のFPS
-        fps_sample: サンプリングFPS
-
-    Returns:
-        (step, eff_fps) のタプル
-    """
-    step = max(1, int(round(orig_fps / fps_sample))) if orig_fps and orig_fps > 0 else 1
-    eff_fps = (orig_fps / step) if orig_fps and orig_fps > 0 else fps_sample
-    return step, eff_fps
-
-
-def _calculate_hand_bbox(hand_landmarks: Any) -> _HandBoundingBox:
-    """
-    手のランドマークからバウンディングボックスを計算する。
-
-    Args:
-        hand_landmarks: MediaPipeの手のランドマーク
-
-    Returns:
-        手のバウンディングボックス情報
-    """
-    x_coords = [lm.x for lm in hand_landmarks.landmark]
-    y_coords = [lm.y for lm in hand_landmarks.landmark]
-
-    x_min, x_max = min(x_coords), max(x_coords)
-    y_min, y_max = min(y_coords), max(y_coords)
-
-    width = x_max - x_min
-    height = y_max - y_min
-    area = width * height
-
-    return _HandBoundingBox(
-        x_min=x_min,
-        y_min=y_min,
-        x_max=x_max,
-        y_max=y_max,
-        width=width,
-        height=height,
-        area=area,
-        center_x=(x_min + x_max) / 2,
-        center_y=(y_min + y_max) / 2,
-    )
+from src.model import BoundingBox
+from src.service.editing_movie import carculate_sampling
+from src.service.setup_video import setup_video_capture
 
 
 def _process_video_frames(
@@ -113,7 +15,7 @@ def _process_video_frames(
     fps_sample: int,
     min_conf: float,
     progress_desc: str,
-) -> Generator[Tuple[int, Optional[List[_HandBoundingBox]]], None, Tuple[float, int]]:
+) -> Generator[Tuple[int, Optional[List[BoundingBox]]], None, Tuple[float, int]]:
     """
     動画フレームを順次処理し、各フレームの手検出結果を yield する。
 
@@ -131,8 +33,8 @@ def _process_video_frames(
     Returns:
         (eff_fps, processed_frames) のタプル
     """
-    cap, metadata = _setup_video_capture(video_path)
-    step, eff_fps = _calculate_sampling(metadata.orig_fps, fps_sample)
+    cap, metadata = setup_video_capture(video_path)
+    step, eff_fps = carculate_sampling(metadata.orig_fps, fps_sample)
 
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
@@ -165,7 +67,7 @@ def _process_video_frames(
                 hand_bounding_boxes = None
                 if result.multi_hand_landmarks and result.multi_handedness:
                     hand_bounding_boxes = [
-                        _calculate_hand_bbox(hand_landmarks)
+                        carculate_sampling(hand_landmarks)
                         for hand_landmarks in result.multi_hand_landmarks
                     ]
 
@@ -362,7 +264,7 @@ def smooth_positions(
     window_size: int = 5,
 ) -> List[Optional[Tuple[float, float]]]:
     """
-    手の位置をスムージングする（移動平均）。
+    指定された位置をスムージングする（移動平均）。
 
     Args:
         positions: 手の位置のリスト（None は手が検出されなかったフレーム）
