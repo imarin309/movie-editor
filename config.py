@@ -14,11 +14,19 @@ DEFAULT_MERGE_GAP_SEC: float = 0.25  # 小さな隙間で区切られたセグ�
 DEFAULT_PAD_SEC: float = 0.8  # 各セグメントの前後に追加するパディング秒数
 
 # クロップ位置のデフォルト設定
-DEFAULT_CROP_HAND_HORIZONTAL_RATIO: float = 0.8  # 手を画面の左から何%の位置に配置するか (0.5=中央, 0.40=やや左寄り)
-DEFAULT_CROP_HAND_VERTICAL_RATIO: float = 0.5  # 手を画面の上から何%の位置に配置するか (0.5=中央)
+DEFAULT_CROP_HAND_HORIZONTAL_RATIO: float = (
+    0.8  # 手を画面の左から何%の位置に配置するか (0.5=中央, 0.40=やや左寄り)
+)
+DEFAULT_CROP_HAND_VERTICAL_RATIO: float = (
+    0.5  # 手を画面の上から何%の位置に配置するか (0.5=中央)
+)
 DEFAULT_SMOOTH_WINDOW_SIZE: int = 1  # 手の位置スムージングの移動平均ウィンドウサイズ
 
 # クロップズームのデフォルト設定
 DEFAULT_AUTO_ZOOM: bool = True  # 手のサイズに基づいて自動的にズーム率を調整するかどうか
-DEFAULT_TARGET_HAND_RATIO: float = 0.15  # 自動ズーム時に手が占める目標の画面比率 (0.15 = 15%、手全体のバウンディングボックス)
-DEFAULT_CROP_ZOOM_RATIO: float = 0.3  # 手動ズーム時のズーム率 (0.3=約3.3倍ズーム、0.5=2倍ズーム、小さいほど大きくズーム)
+DEFAULT_TARGET_HAND_RATIO: float = (
+    0.15  # 自動ズーム時に手が占める目標の画面比率 (0.15 = 15%、手全体のバウンディングボックス)
+)
+DEFAULT_CROP_ZOOM_RATIO: float = (
+    0.3  # 手動ズーム時のズーム率 (0.3=約3.3倍ズーム、0.5=2倍ズーム、小さいほど大きくズーム)
+)

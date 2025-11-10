@@ -89,13 +89,11 @@ class EditMovie:
             codec="libx264",
             audio=False,
         )
-        
-        
+
     def _clean(self) -> None:
         self.output_movie.close()
-        if hasattr(self, 'source_clip'):
+        if hasattr(self, "source_clip"):
             self.source_clip.close()
-
 
     def _crop_to_hand_center(self) -> None:
         """
