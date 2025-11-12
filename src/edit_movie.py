@@ -6,7 +6,7 @@ from moviepy import VideoFileClip, concatenate_videoclips, vfx
 import config
 from src.model.landmark_detector import HandDetector
 from src.service.crop import crop_to_hand_center
-from src.service.segment.main import bools_to_segments, clamp_segments
+from service.segment_service import SegmentService
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -51,14 +51,16 @@ class EditMovie:
         )
 
     def _make_segment(self) -> None:
-        segments = bools_to_segments(
+        segments = SegmentService.create_segments_from_mask(
             mask=self.mask,
             fps=self.eff_fps,
             min_keep_sec=self.min_keep_sec,
             pad_sec=self.pad_sec,
             merge_gap_sec=self.merge_gap_sec,
         )
-        self.segments = clamp_segments(segments, self.duration)
+        self.segments = SegmentService.clamp_segments_to_duration(
+            segments, self.duration
+        )
 
     def _clip_movie(self) -> None:
         if not self.segments:
