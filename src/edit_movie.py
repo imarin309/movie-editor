@@ -4,8 +4,8 @@ from pathlib import Path
 from moviepy import VideoFileClip, concatenate_videoclips, vfx
 
 import config
+from src.model.landmark_detector import HandDetector
 from src.service.crop import crop_to_hand_center
-from src.service.masking.hand import detect_hands_mask
 from src.service.segment.main import bools_to_segments, clamp_segments
 
 logging.basicConfig(
@@ -42,7 +42,8 @@ class EditMovie:
             self.duration = probe.duration
 
     def _make_mask(self) -> None:
-        self.mask, self.eff_fps = detect_hands_mask(
+        detector = HandDetector()
+        self.mask, self.eff_fps = detector.detect_mask(
             video_path=self.input_movie_path,
             fps_sample=self.fps_sample,
             min_conf=self.min_conf,

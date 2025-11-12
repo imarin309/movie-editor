@@ -2,13 +2,13 @@ import logging
 from typing import Optional, Union
 
 from moviepy import VideoFileClip, concatenate_videoclips
-from moviepy.video.VideoClip import VideoClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+from moviepy.video.VideoClip import VideoClip
 from tqdm import tqdm
 
-from src.service.masking.hand import (
+from src.model.landmark_detector import (
+    HandDetector,
     calculate_auto_zoom_ratio,
-    detect_hands_position_and_size,
     smooth_positions,
 )
 
@@ -49,7 +49,8 @@ def crop_to_hand_center(
     """
     logger.info("Detecting hand positions and sizes for cropping")
 
-    positions, sizes, hand_fps = detect_hands_position_and_size(
+    detector = HandDetector()
+    positions, sizes, hand_fps = detector.detect_positions_and_sizes(
         video_path=input_movie_path,
         fps_sample=fps_sample,
         min_conf=min_conf,
@@ -58,11 +59,17 @@ def crop_to_hand_center(
 
     if auto_zoom:
         logger.info("Calculating auto zoom ratio based on hand size")
-        auto_zoom_ratio = calculate_auto_zoom_ratio(sizes, target_hand_ratio=target_hand_ratio)
-        logger.info(f"Auto zoom ratio: {auto_zoom_ratio:.3f} (zoom: {1/auto_zoom_ratio:.1f}x)")
+        auto_zoom_ratio = calculate_auto_zoom_ratio(
+            sizes, target_hand_ratio=target_hand_ratio
+        )
+        logger.info(
+            f"Auto zoom ratio: {auto_zoom_ratio:.3f} (zoom: {1 / auto_zoom_ratio:.1f}x)"
+        )
         crop_zoom_ratio = auto_zoom_ratio
     else:
-        logger.info(f"Using manual zoom ratio: {crop_zoom_ratio:.3f} (zoom: {1/crop_zoom_ratio:.1f}x)")
+        logger.info(
+            f"Using manual zoom ratio: {crop_zoom_ratio:.3f} (zoom: {1 / crop_zoom_ratio:.1f}x)"
+        )
 
     logger.info("Smoothing hand positions")
     positions = smooth_positions(positions, window_size=smooth_window_size)
@@ -82,7 +89,9 @@ def crop_to_hand_center(
     crop_w = int(orig_w * crop_zoom_ratio)
     crop_h = int(orig_h * crop_zoom_ratio)
 
-    logger.info(f"Original size: {orig_w}x{orig_h}, Crop size: {crop_w}x{crop_h} (zoom: {1/crop_zoom_ratio:.1f}x)")
+    logger.info(
+        f"Original size: {orig_w}x{orig_h}, Crop size: {crop_w}x{crop_h} (zoom: {1 / crop_zoom_ratio:.1f}x)"
+    )
 
     clips = []
 
@@ -134,9 +143,15 @@ def crop_to_hand_center(
             logger.info("First frame crop info:")
             logger.info(f"  Hand position: ({cx:.1f}, {cy:.1f}) in {orig_w}x{orig_h}")
             logger.info(f"  Crop size: {crop_w}x{crop_h}")
-            logger.info(f"  Target hand ratio: H={hand_horizontal_ratio:.2f}, V={hand_vertical_ratio:.2f}")
-            logger.info(f"  Calculated x1: {x1_original:.1f} -> {x1:.1f} (adjusted: {adjusted})")
-            logger.info(f"  Actual hand position in crop: H={hand_x_ratio:.2f}, V={hand_y_ratio:.2f}")
+            logger.info(
+                f"  Target hand ratio: H={hand_horizontal_ratio:.2f}, V={hand_vertical_ratio:.2f}"
+            )
+            logger.info(
+                f"  Calculated x1: {x1_original:.1f} -> {x1:.1f} (adjusted: {adjusted})"
+            )
+            logger.info(
+                f"  Actual hand position in crop: H={hand_x_ratio:.2f}, V={hand_y_ratio:.2f}"
+            )
 
         # サブクリップを作成してクロップ
         try:

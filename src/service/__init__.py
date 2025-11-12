@@ -1,3 +1,4 @@
-from src.service.cropping_hand import crop_to_hand_center
+# Avoid circular import by not importing here
+# Import directly from cropping_hand when needed
 
-__all__ = ["crop_to_hand_center"]
+__all__ = []
