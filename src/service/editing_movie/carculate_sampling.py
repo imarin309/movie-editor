@@ -1,16 +1,20 @@
 from typing import Tuple
 
-def calculate_sampling(orig_fps: float, fps_sample: int) -> Tuple[int, float]:
+def get_effective_fps(original_fps: float, sampling_fps: int) -> Tuple[int, float]:
     """
-    フレームサンプリングのステップと実効FPSを計算する。
+    実行するfgsを抽出する
 
     Args:
-        orig_fps: 元動画のFPS
+        original_fps: 元動画のFPS
         fps_sample: サンプリングFPS
 
     Returns:
         (step, eff_fps) のタプル
     """
-    step = max(1, int(round(orig_fps / fps_sample))) if orig_fps and orig_fps > 0 else 1
-    eff_fps = (orig_fps / step) if orig_fps and orig_fps > 0 else fps_sample
-    return step, eff_fps
+    if original_fps > 0:
+        step = max(1, int(round(original_fps / sampling_fps)))
+        effective_fps = original_fps / step
+    else:
+        step = 1 
+        effective_fps = sampling_fps
+    return step, effective_fps

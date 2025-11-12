@@ -3,8 +3,7 @@ from typing import Any
 
 @dataclass
 class BoundingBox:
-    """バウンディングボックス情報"""
-
+    
     x_min: float
     y_min: float
     x_max: float
