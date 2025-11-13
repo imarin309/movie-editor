@@ -1,10 +1,10 @@
 from typing import List
 
-from src.model.segment import Segment
+from model.video.segment import Segment
 
 
 class SegmentService:
-    
+
     @classmethod
     def create_segments_from_mask(
         cls,
@@ -30,7 +30,7 @@ class SegmentService:
         filtered_segments = cls._filter_short_segments(raw_segments, min_keep_sec)
         merged_segments = cls._merge_close_segments(filtered_segments, merge_gap_sec)
         return cls._add_padding(merged_segments, pad_sec)
-        
+
     @classmethod
     def clamp_segments_to_duration(
         cls, segments: List[Segment], duration: float
@@ -54,9 +54,7 @@ class SegmentService:
         return clamped
 
     @staticmethod
-    def _convert_mask_to_raw_segments(
-        mask: List[bool], fps: float
-    ) -> List[Segment]:
+    def _convert_mask_to_raw_segments(mask: List[bool], fps: float) -> List[Segment]:
         """マスクから生のセグメントリストを抽出（フィルタリングなし）
 
         Args:
@@ -129,18 +127,5 @@ class SegmentService:
         return merged
 
     @staticmethod
-    def _add_padding(
-        segments: List[Segment], pad_sec: float
-    ) -> List[Segment]:
-        """各セグメントの前後にパディングを追加
-
-        Args:
-            segments: パディング対象のセグメント
-            pad_sec: 前後に追加する秒数
-
-        Returns:
-            パディングが追加されたセグメントのリスト（開始時刻は0.0未満にならない）
-        """
-        return [
-            Segment(max(0.0, s.start - pad_sec), s.end + pad_sec) for s in segments
-        ]
+    def _add_padding(segments: List[Segment], pad_sec: float) -> List[Segment]:
+        return [Segment(max(0.0, s.start - pad_sec), s.end + pad_sec) for s in segments]

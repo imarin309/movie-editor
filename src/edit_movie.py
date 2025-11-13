@@ -4,9 +4,10 @@ from pathlib import Path
 from moviepy import VideoFileClip, concatenate_videoclips, vfx
 
 import config
-from src.model.landmark_detector import HandDetector
-from src.service.crop import crop_to_hand_center
-from service.segment_service import SegmentService
+from src.service.cropping import CroppingConfig, crop_to_landmark_center
+from src.service.detector import HandDetectorService, smooth_positions
+from src.service.segment_service import SegmentService
+from src.service.zoom_service import calculate_auto_zoom_ratio
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -31,18 +32,18 @@ class EditMovie:
         self.min_keep_sec = config.DEFAULT_MIN_KEEP_SEC
         self.pad_sec = config.DEFAULT_PAD_SEC
         self.merge_gap_sec = config.DEFAULT_MERGE_GAP_SEC
-        self.hand_horizontal_ratio = config.DEFAULT_CROP_HAND_HORIZONTAL_RATIO
-        self.hand_vertical_ratio = config.DEFAULT_CROP_HAND_VERTICAL_RATIO
+        self.landmark_horizontal_ratio = config.DEFAULT_CROP_HAND_HORIZONTAL_RATIO
+        self.landmark_vertical_ratio = config.DEFAULT_CROP_HAND_VERTICAL_RATIO
         self.smooth_window_size = config.DEFAULT_SMOOTH_WINDOW_SIZE
         self.auto_zoom = config.DEFAULT_AUTO_ZOOM
-        self.target_hand_ratio = config.DEFAULT_TARGET_HAND_RATIO
+        self.target_landmark_ratio = config.DEFAULT_TARGET_HAND_RATIO
         self.crop_zoom_ratio = config.DEFAULT_CROP_ZOOM_RATIO
         self.source_clip = VideoFileClip(self.input_movie_path)
         with VideoFileClip(input_movie_path) as probe:
             self.duration = probe.duration
 
     def _make_mask(self) -> None:
-        detector = HandDetector()
+        detector = HandDetectorService()
         self.mask, self.eff_fps = detector.detect_mask(
             video_path=self.input_movie_path,
             fps_sample=self.fps_sample,
@@ -65,7 +66,7 @@ class EditMovie:
     def _clip_movie(self) -> None:
         if not self.segments:
             logger.warning(
-                "No hand segments found. Writing tiny clip to avoid empty output."
+                "No landmark segments found. Writing tiny clip to avoid empty output."
             )
             with VideoFileClip(self.input_movie_path) as clip:
                 sub = clip.subclipped(1, clip.duration)
@@ -98,25 +99,32 @@ class EditMovie:
         if hasattr(self, "source_clip"):
             self.source_clip.close()
 
-    def _crop_to_hand_center(self) -> None:
+    def _crop_to_landmark_center(self) -> None:
         """
-        手の位置を中心にクロップする。
-        - 手が検出されたフレームのみを保持
+        ランドマークの位置を中心にクロップする。
+        - ランドマークが検出されたフレームのみを保持
         - スムージングを適用してカメラの動きを滑らかに
-        - 手のサイズに基づいて自動的にズーム率を調整（デフォルト：手が画面の1/4を占めるように）
+        - ランドマークのサイズに基づいて自動的にズーム率を調整（デフォルト：ランドマークが画面の1/4を占めるように）
         """
-        self.output_movie = crop_to_hand_center(
-            source_clip=self.source_clip,
-            input_movie_path=self.input_movie_path,
+        detector = HandDetectorService()
+        config = CroppingConfig(
             fps_sample=self.fps_sample,
             min_conf=self.min_conf,
             min_area_ratio=self.min_area_ratio,
-            hand_horizontal_ratio=self.hand_horizontal_ratio,
-            hand_vertical_ratio=self.hand_vertical_ratio,
+            landmark_horizontal_ratio=self.landmark_horizontal_ratio,
+            landmark_vertical_ratio=self.landmark_vertical_ratio,
             smooth_window_size=self.smooth_window_size,
             crop_zoom_ratio=self.crop_zoom_ratio,
             auto_zoom=self.auto_zoom,
-            target_hand_ratio=self.target_hand_ratio,
+            target_landmark_ratio=self.target_landmark_ratio,
+        )
+        self.output_movie = crop_to_landmark_center(
+            source_clip=self.source_clip,
+            input_movie_path=self.input_movie_path,
+            detector=detector,
+            config=config,
+            calculate_auto_zoom_fn=calculate_auto_zoom_ratio,
+            smooth_positions_fn=smooth_positions,
         )
 
     def _change_speed(self) -> None:
@@ -128,7 +136,7 @@ class EditMovie:
         self._make_segment()
         self._clip_movie()
         self._concat_movie()
-        self._crop_to_hand_center()
+        self._crop_to_landmark_center()
         self._change_speed()
         self._output()
         self._clean()
