@@ -1,21 +1,12 @@
-from dataclasses import dataclass
 from typing import Any
 
-@dataclass
-class BoundingBox:
-    
-    x_min: float
-    y_min: float
-    x_max: float
-    y_max: float
-    width: float
-    height: float
-    area: float
-    center_x: float
-    center_y: float
+from model.video.bouding_box import BoundingBox
 
-    @classmethod
-    def _calculate_bounding_box_in_target_randmark(cls, landmarks: Any) -> "BoundingBox":
+
+class BoundingBoxService:
+    
+    @staticmethod
+    def calculate_from_landmarks(landmarks: Any) -> BoundingBox:
         """
         対象のランドマークからバウンディングボックスを計算する。
 
@@ -23,7 +14,7 @@ class BoundingBox:
             landmarks: MediaPipeのランドマーク
 
         Returns:
-            対象のバウンディングボックス情報
+            計算されたバウンディングボックス
         """
         x_coords = [lm.x for lm in landmarks.landmark]
         y_coords = [lm.y for lm in landmarks.landmark]
@@ -35,7 +26,7 @@ class BoundingBox:
         height = y_max - y_min
         area = width * height
 
-        return cls(
+        return BoundingBox(
             x_min=x_min,
             y_min=y_min,
             x_max=x_max,

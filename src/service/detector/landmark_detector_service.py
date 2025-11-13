@@ -1,42 +1,23 @@
 import math
-from abc import ABC, abstractmethod
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import cv2
 from tqdm import tqdm
 
 from src.model import BoundingBox
-from src.service.editing_movie.carculate_sampling import get_effective_fps
-from src.service.setup_video import setup_video_capture
+from src.model.service_abstract.landmark_detector_abstract import (
+    LandmarkDetectorAbstract,
+)
+from src.service.video_service import VideoService
 
 
-class LandmarkDetector(ABC):
-    
-    @abstractmethod
-    def _create_detector(self, min_conf: float) -> Any:
-        """
-        MediaPipe検出器を作成する。
+class LandmarkDetectorService(LandmarkDetectorAbstract):
+    """
+    ランドマーク検出の汎用的なロジックを提供するサービスクラス。
 
-        Args:
-            min_conf: 最小信頼度
-
-        Returns:
-            MediaPipe検出器インスタンス
-        """
-        pass
-
-    @abstractmethod
-    def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
-        """
-        MediaPipeの検出結果からバウンディングボックスのリストを生成する。
-
-        Args:
-            result: MediaPipeの検出結果
-
-        Returns:
-            バウンディングボックスのリスト、または検出されなかった場合はNone
-        """
-        pass
+    このクラスは抽象メソッド以外の汎用的な実装を提供する。
+    具体的な検出器（HandDetectorServiceなど）はこのクラスを継承する。
+    """
 
     def _is_valid_detection(
         self, bounding_box: BoundingBox, min_area_ratio: float
@@ -55,19 +36,6 @@ class LandmarkDetector(ABC):
             有効な検出の場合True、そうでない場合False
         """
         return bounding_box.area >= min_area_ratio
-
-    @abstractmethod
-    def _get_selection_key(self, bounding_box: BoundingBox) -> float:
-        """
-        検出から最適なものを選択するための基準値を返す。
-
-        Args:
-            bounding_box: 検出されたバウンディングボックス
-
-        Returns:
-            選択基準値（大きいほど優先）
-        """
-        pass
 
     def _select_best_detection(
         self, bounding_boxes: List[BoundingBox], min_area_ratio: float
@@ -121,8 +89,8 @@ class LandmarkDetector(ABC):
         Returns:
             (eff_fps, processed_frames) のタプル
         """
-        cap, metadata = setup_video_capture(video_path)
-        step, eff_fps = get_effective_fps(metadata.orig_fps, fps_sample)
+        cap, metadata = VideoService.setup_video_capture(video_path)
+        step, eff_fps = VideoService.get_effective_fps(metadata.orig_fps, fps_sample)
 
         detector = self._create_detector(min_conf)
 
@@ -289,26 +257,6 @@ class LandmarkDetector(ABC):
             video_path, fps_sample, min_conf, min_area_ratio
         )
         return positions, eff_fps
-
-    @abstractmethod
-    def _get_progress_desc_for_mask(self) -> str:
-        """
-        マスク検出時のプログレスバー説明文を返す。
-
-        Returns:
-            プログレスバー説明文
-        """
-        pass
-
-    @abstractmethod
-    def _get_progress_desc_for_positions(self) -> str:
-        """
-        位置検出時のプログレスバー説明文を返す。
-
-        Returns:
-            プログレスバー説明文
-        """
-        pass
 
 
 def smooth_positions(
