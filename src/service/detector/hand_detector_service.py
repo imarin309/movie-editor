@@ -2,18 +2,15 @@ from typing import Any, List, Optional
 
 import mediapipe as mp
 
-from src.model import BoundingBox
+from src.model import BoundingBox, Config
 from src.service.bounding_box_service import BoundingBoxService
 from src.service.detector.landmark_detector_service import LandmarkDetectorService
 
 
 class HandDetectorService(LandmarkDetectorService):
-    """
-    手の検出に特化したサービスクラス。
 
-    MediaPipe Handsを使用して手を検出し、
-    右側の手を優先的に選択する。
-    """
+    def __init__(self, video_path: str, config: Config):
+        super().__init__(video_path, config)
 
     def _create_detector(self, min_conf: float) -> Any:
         """
@@ -62,21 +59,3 @@ class HandDetectorService(LandmarkDetectorService):
             選択基準値（x座標の中心、大きいほど右側）
         """
         return bounding_box.center_x
-
-    def _get_progress_desc_for_mask(self) -> str:
-        """
-        マスク検出時のプログレスバー説明文を返す。
-
-        Returns:
-            "Detecting hands"
-        """
-        return "Detecting hands"
-
-    def _get_progress_desc_for_positions(self) -> str:
-        """
-        位置検出時のプログレスバー説明文を返す。
-
-        Returns:
-            "Detecting hand positions"
-        """
-        return "Detecting hand positions"

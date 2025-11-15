@@ -1,10 +1,10 @@
 from typing import Any
 
-from model.video.bouding_box import BoundingBox
+from src.model import BoundingBox
 
 
 class BoundingBoxService:
-    
+
     @staticmethod
     def calculate_from_landmarks(landmarks: Any) -> BoundingBox:
         """
