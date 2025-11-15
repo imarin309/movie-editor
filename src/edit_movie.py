@@ -4,10 +4,9 @@ from pathlib import Path
 from moviepy import VideoFileClip, concatenate_videoclips, vfx
 
 import config
-from src.service.cropping import CroppingConfig, crop_to_landmark_center
-from src.service.detector import HandDetectorService, smooth_positions
+from src.model import Config
+from src.service.detector import HandDetectorService
 from src.service.segment_service import SegmentService
-from src.service.zoom_service import calculate_auto_zoom_ratio
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -26,56 +25,43 @@ class EditMovie:
         logger.info(f"Input: {self.input_movie_path}")
         logger.info(f"Output: {self.output_movie_path}")
 
-        self.fps_sample = config.DEFAULT_FPS_SAMPLE
-        self.min_conf = config.DEFAULT_MIN_CONFIDENCE
-        self.min_area_ratio = config.DEFAULT_MIN_AREA_RATIO
-        self.min_keep_sec = config.DEFAULT_MIN_KEEP_SEC
-        self.pad_sec = config.DEFAULT_PAD_SEC
-        self.merge_gap_sec = config.DEFAULT_MERGE_GAP_SEC
-        self.landmark_horizontal_ratio = config.DEFAULT_CROP_HAND_HORIZONTAL_RATIO
-        self.landmark_vertical_ratio = config.DEFAULT_CROP_HAND_VERTICAL_RATIO
-        self.smooth_window_size = config.DEFAULT_SMOOTH_WINDOW_SIZE
-        self.auto_zoom = config.DEFAULT_AUTO_ZOOM
-        self.target_landmark_ratio = config.DEFAULT_TARGET_HAND_RATIO
-        self.crop_zoom_ratio = config.DEFAULT_CROP_ZOOM_RATIO
-        self.source_clip = VideoFileClip(self.input_movie_path)
-        with VideoFileClip(input_movie_path) as probe:
-            self.duration = probe.duration
-
-    def _make_mask(self) -> None:
-        detector = HandDetectorService()
-        self.mask, self.eff_fps = detector.detect_mask(
-            video_path=self.input_movie_path,
-            fps_sample=self.fps_sample,
-            min_conf=self.min_conf,
-            min_area_ratio=self.min_area_ratio,
+        self.config = Config(
+            fps_sample=config.DEFAULT_FPS_SAMPLE,
+            min_conf=config.DEFAULT_MIN_CONFIDENCE,
+            min_area_ratio=config.DEFAULT_MIN_AREA_RATIO,
+            min_keep_sec=config.DEFAULT_MIN_KEEP_SEC,
+            pad_sec=config.DEFAULT_PAD_SEC,
+            merge_gap_sec=config.DEFAULT_MERGE_GAP_SEC,
+            landmark_horizontal_ratio=config.DEFAULT_CROP_HAND_HORIZONTAL_RATIO,
+            landmark_vertical_ratio=config.DEFAULT_CROP_HAND_VERTICAL_RATIO,
+            smooth_window_size=config.DEFAULT_SMOOTH_WINDOW_SIZE,
+            auto_zoom=config.DEFAULT_AUTO_ZOOM,
+            target_landmark_ratio=config.DEFAULT_TARGET_HAND_RATIO,
+            crop_zoom_ratio=config.DEFAULT_CROP_ZOOM_RATIO,
         )
+
+    def _setup(self) -> None:
+        self.source_clip = VideoFileClip(self.input_movie_path)
+        with VideoFileClip(self.input_movie_path) as probe:
+            self.duration = probe.duration
+        self.detector = HandDetectorService(
+            video_path=self.input_movie_path, config=self.config
+        )
+
+    def _detect_hand(self) -> None:
+        self.detector.extract_landmark_info()
 
     def _make_segment(self) -> None:
         segments = SegmentService.create_segments_from_mask(
-            mask=self.mask,
-            fps=self.eff_fps,
-            min_keep_sec=self.min_keep_sec,
-            pad_sec=self.pad_sec,
-            merge_gap_sec=self.merge_gap_sec,
+            mask=self.detector.landmark_info.has_landmark_frame,
+            fps=self.detector.effective_fps,
+            min_keep_sec=self.config.min_keep_sec,
+            pad_sec=self.config.pad_sec,
+            merge_gap_sec=self.config.merge_gap_sec,
         )
         self.segments = SegmentService.clamp_segments_to_duration(
             segments, self.duration
         )
-
-    def _clip_movie(self) -> None:
-        if not self.segments:
-            logger.warning(
-                "No landmark segments found. Writing tiny clip to avoid empty output."
-            )
-            with VideoFileClip(self.input_movie_path) as clip:
-                sub = clip.subclipped(1, clip.duration)
-                sub.write_videofile(
-                    self.output_movie_path,
-                    codec="libx264",
-                    audio=False,
-                )
-            return
 
     def _concat_movie(self) -> None:
         clips = []
@@ -99,44 +85,18 @@ class EditMovie:
         if hasattr(self, "source_clip"):
             self.source_clip.close()
 
-    def _crop_to_landmark_center(self) -> None:
-        """
-        ランドマークの位置を中心にクロップする。
-        - ランドマークが検出されたフレームのみを保持
-        - スムージングを適用してカメラの動きを滑らかに
-        - ランドマークのサイズに基づいて自動的にズーム率を調整（デフォルト：ランドマークが画面の1/4を占めるように）
-        """
-        detector = HandDetectorService()
-        config = CroppingConfig(
-            fps_sample=self.fps_sample,
-            min_conf=self.min_conf,
-            min_area_ratio=self.min_area_ratio,
-            landmark_horizontal_ratio=self.landmark_horizontal_ratio,
-            landmark_vertical_ratio=self.landmark_vertical_ratio,
-            smooth_window_size=self.smooth_window_size,
-            crop_zoom_ratio=self.crop_zoom_ratio,
-            auto_zoom=self.auto_zoom,
-            target_landmark_ratio=self.target_landmark_ratio,
-        )
-        self.output_movie = crop_to_landmark_center(
-            source_clip=self.source_clip,
-            input_movie_path=self.input_movie_path,
-            detector=detector,
-            config=config,
-            calculate_auto_zoom_fn=calculate_auto_zoom_ratio,
-            smooth_positions_fn=smooth_positions,
-        )
-
     def _change_speed(self) -> None:
         self.output_movie = self.output_movie.with_effects([vfx.MultiplySpeed(3.0)])
 
     def run(self) -> None:
 
-        self._make_mask()
+        self._setup()
+        self._detect_hand()
         self._make_segment()
-        self._clip_movie()
+        if not self.segments:
+            logger.info("対象物が検出されませんでした。終了します。")
+            return
         self._concat_movie()
-        self._crop_to_landmark_center()
         self._change_speed()
         self._output()
         self._clean()

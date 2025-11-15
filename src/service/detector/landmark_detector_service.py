@@ -1,10 +1,10 @@
 import math
-from typing import Generator, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import cv2
 from tqdm import tqdm
 
-from src.model import BoundingBox
+from src.model import BoundingBox, Config, LandmarkInfo
 from src.model.service_abstract.landmark_detector_abstract import (
     LandmarkDetectorAbstract,
 )
@@ -12,29 +12,90 @@ from src.service.video_service import VideoService
 
 
 class LandmarkDetectorService(LandmarkDetectorAbstract):
-    """
-    ランドマーク検出の汎用的なロジックを提供するサービスクラス。
 
-    このクラスは抽象メソッド以外の汎用的な実装を提供する。
-    具体的な検出器（HandDetectorServiceなど）はこのクラスを継承する。
-    """
+    video_path: str
+    fps_sample: int
+    min_conf: float
+    min_area_ratio: float
+
+    def __init__(self, video_path: str, config: Config) -> None:
+        self.video_path = video_path
+        self.fps_sample = config.fps_sample
+        self.min_conf = config.min_conf
+        self.min_area_ratio = config.min_area_ratio
+
+    def _make_video_editor(self):
+
+        self.video_caputre = cv2.VideoCapture(self.video_path)
+        if not self.video_caputre.isOpened():
+            raise RuntimeError(f"Could not open video: {self.video_path}")
+        self.video_meta = VideoService.get_video_meta(self.video_caputre)
+        self.sampling_step, self.effective_fps = VideoService.get_effective_fps(
+            self.video_meta.orig_fps, self.fps_sample
+        )
+
+        self.detector = self._create_detector(self.min_conf)
+        self.bounding_boxes = self._calculate_process_frame()
+
+    def _calculate_process_frame(self) -> List[Optional[List[BoundingBox]]]:
+        """
+        動画フレームをサンプリングして処理し、各フレームの検出結果をリストで返す。
+
+        元動画の全フレームではなく、fps_sampleに基づいて計算されたステップ間隔で
+        フレームをサンプリングして処理する。
+        検出対象は _create_detector() を実装するサブクラスによって決定される。
+
+        Returns:
+            各フレームのバウンディングボックスのリスト、または検出されなかった場合はNone
+        """
+        bounding_boxes = []
+
+        try:
+            idx = 0
+            pbar = tqdm(
+                total=math.ceil(self.video_meta.total_frames / self.sampling_step),
+                desc="detecting target...",
+                unit="f",
+            )
+
+            with self.detector:
+                while True:
+                    ret, frame = self.video_caputre.read()
+                    if not ret:
+                        break
+
+                    if idx % self.sampling_step != 0:
+                        idx += 1
+                        continue
+
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    result = self.detector.process(rgb)
+
+                    bounding_box = self._make_bounding_box(result)
+
+                    bounding_boxes.append(bounding_box)
+
+                    pbar.update(1)
+                    idx += 1
+
+            pbar.close()
+        finally:
+            self.video_caputre.release()
+
+        return bounding_boxes
+
+    def _create_detector(self, min_conf: float) -> Any:
+        """対象物に依存するのでサブクラスで定義する"""
+        pass
+
+    def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
+        """対象物に依存するのでサブクラスで定義する"""
+        pass
 
     def _is_valid_detection(
         self, bounding_box: BoundingBox, min_area_ratio: float
     ) -> bool:
-        """
-        検出されたバウンディングボックスが有効かどうかを判定する。
-
-        デフォルトでは面積比が閾値以上の場合に有効とみなす。
-        必要に応じてサブクラスでオーバーライド可能。
-
-        Args:
-            bounding_box: 検出されたバウンディングボックス
-            min_area_ratio: 最小面積比
-
-        Returns:
-            有効な検出の場合True、そうでない場合False
-        """
+        """検出されたバウンディングボックスが有効かどうかを判定する"""
         return bounding_box.area >= min_area_ratio
 
     def _select_best_detection(
@@ -65,237 +126,42 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         return best_detection
 
-    def _process_video_frames(
-        self,
-        video_path: str,
-        fps_sample: int,
-        min_conf: float,
-        progress_desc: str,
-    ) -> Generator[Tuple[int, Optional[List[BoundingBox]]], None, Tuple[float, int]]:
-        """
-        動画フレームを順次処理し、各フレームのランドマーク検出結果を yield する。
-
-        Args:
-            video_path: 動画ファイルのパス
-            fps_sample: サンプリングFPS
-            min_conf: MediaPipeの最小信頼度
-            progress_desc: プログレスバーの説明文
-
-        Yields:
-            (frame_index, bounding_boxes) のタプル
-            - frame_index: フレームのインデックス
-            - bounding_boxes: 検出されたバウンディングボックスのリスト（検出されない場合はNone）
-
-        Returns:
-            (eff_fps, processed_frames) のタプル
-        """
-        cap, metadata = VideoService.setup_video_capture(video_path)
-        step, eff_fps = VideoService.get_effective_fps(metadata.orig_fps, fps_sample)
-
-        detector = self._create_detector(min_conf)
-
-        try:
-            idx = 0
-            processed_frames = 0
-            pbar = tqdm(
-                total=math.ceil(metadata.total_frames / step),
-                desc=progress_desc,
-                unit="f",
-            )
-
-            with detector:
-                while True:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-
-                    if idx % step != 0:
-                        idx += 1
-                        continue
-
-                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    result = detector.process(rgb)
-
-                    bounding_boxes = self._make_bounding_box(result)
-
-                    yield processed_frames, bounding_boxes
-
-                    pbar.update(1)
-                    processed_frames += 1
-                    idx += 1
-
-            pbar.close()
-        finally:
-            cap.release()
-
-        return eff_fps, processed_frames
-
-    def detect_mask(
-        self,
-        video_path: str,
-        fps_sample: int,
-        min_conf: float,
-        min_area_ratio: float,
-    ) -> Tuple[List[bool], float]:
-        """
-        動画を読み、フレームごとに「ランドマークが検出されたか」をTrue/Falseで返す。
-
-        Args:
-            video_path: 動画ファイルのパス
-            fps_sample: サンプリングFPS
-            min_conf: MediaPipeの最小信頼度
-            min_area_ratio: 最小バウンディングボックス面積比
-
-        Returns:
-            mask: 各フレームの検出結果（True/False）のリスト
-            eff_fps: 実効FPS
-        """
-        mask: List[bool] = []
-
-        generator = self._process_video_frames(
-            video_path, fps_sample, min_conf, self._get_progress_desc_for_mask()
-        )
-
-        for _, bounding_boxes in generator:
-            has_detection = False
-
-            if bounding_boxes is not None:
-                # 有効な検出があるかチェック
-                for bounding_box in bounding_boxes:
-                    if self._is_valid_detection(bounding_box, min_area_ratio):
-                        has_detection = True
-                        break  # 1つでも十分
-
-            mask.append(has_detection)
-
-        # ジェネレーターの戻り値を取得
-        try:
-            eff_fps, _ = generator.send(None)
-        except StopIteration as e:
-            eff_fps, _ = e.value
-
-        return mask, eff_fps
-
-    def detect_positions_and_sizes(
-        self,
-        video_path: str,
-        fps_sample: int,
-        min_conf: float,
-        min_area_ratio: float,
-    ) -> Tuple[
-        List[Optional[Tuple[float, float]]],
-        List[Optional[Tuple[float, float]]],
-        float,
-    ]:
+    def extract_landmark_info(self) -> None:
         """
         動画を読み、フレームごとにランドマークの中心座標とサイズを返す。
 
-        Args:
-            video_path: 動画ファイルのパス
-            fps_sample: サンプリングFPS
-            min_conf: MediaPipeの最小信頼度
-            min_area_ratio: 最小バウンディングボックス面積比
-
-        Returns:
-            positions: 各フレームの中心座標 (x, y) のリスト。検出されない場合は None
-            sizes: 各フレームのサイズ (width, height) のリスト。検出されない場合は None
-            eff_fps: 実効FPS
         """
+        self._make_video_editor()
+
         positions: List[Optional[Tuple[float, float]]] = []
         sizes: List[Optional[Tuple[float, float]]] = []
+        has_detections: List[bool] = []
 
-        generator = self._process_video_frames(
-            video_path, fps_sample, min_conf, self._get_progress_desc_for_positions()
-        )
-
-        for _, bounding_boxes in generator:
+        for bounding_box in self.bounding_boxes:
             position = None
             size = None
+            has_detection = False
 
-            if bounding_boxes is not None:
-                # 最適な検出を選択
+            if bounding_box is not None:
                 best_detection = self._select_best_detection(
-                    bounding_boxes, min_area_ratio
+                    bounding_box, self.min_area_ratio
                 )
 
                 if best_detection is not None:
                     position = (best_detection.center_x, best_detection.center_y)
                     size = (best_detection.width, best_detection.height)
+                    has_detection = True
 
             positions.append(position)
             sizes.append(size)
+            has_detections.append(has_detection)
 
-        # ジェネレーターの戻り値を取得
-        try:
-            eff_fps, _ = generator.send(None)
-        except StopIteration as e:
-            eff_fps, _ = e.value
-
-        return positions, sizes, eff_fps
-
-    def detect_positions(
-        self,
-        video_path: str,
-        fps_sample: int,
-        min_conf: float,
-        min_area_ratio: float,
-    ) -> Tuple[List[Optional[Tuple[float, float]]], float]:
-        """
-        動画を読み、フレームごとにランドマークの中心座標を返す。
-
-        Args:
-            video_path: 動画ファイルのパス
-            fps_sample: サンプリングFPS
-            min_conf: MediaPipeの最小信頼度
-            min_area_ratio: 最小バウンディングボックス面積比
-
-        Returns:
-            positions: 各フレームの中心座標 (x, y) のリスト。検出されない場合は None
-            eff_fps: 実効FPS
-        """
-        positions, _, eff_fps = self.detect_positions_and_sizes(
-            video_path, fps_sample, min_conf, min_area_ratio
+        self.landmark_info = LandmarkInfo(
+            has_landmark_frame=has_detections,
+            landmark_size=sizes,
+            landmark_position=positions,
         )
-        return positions, eff_fps
 
-
-def smooth_positions(
-    positions: List[Optional[Tuple[float, float]]],
-    window_size: int = 5,
-) -> List[Optional[Tuple[float, float]]]:
-    """
-    指定された位置をスムージングする（移動平均）。
-
-    Args:
-        positions: 位置のリスト（None は検出されなかったフレーム）
-        window_size: 移動平均のウィンドウサイズ
-
-    Returns:
-        スムージングされた位置のリスト
-    """
-    smoothed: List[Optional[Tuple[float, float]]] = []
-
-    for i, pos in enumerate(positions):
-        if pos is None:
-            smoothed.append(None)
-            continue
-
-        # ウィンドウ内の有効な位置を収集
-        valid_positions: List[Tuple[float, float]] = []
-        start_idx = max(0, i - window_size // 2)
-        end_idx = min(len(positions), i + window_size // 2 + 1)
-
-        for j in range(start_idx, end_idx):
-            p = positions[j]
-            if p is not None:
-                valid_positions.append(p)
-
-        if valid_positions:
-            # 平均を計算
-            avg_x = sum(p[0] for p in valid_positions) / len(valid_positions)
-            avg_y = sum(p[1] for p in valid_positions) / len(valid_positions)
-            smoothed.append((avg_x, avg_y))
-        else:
-            smoothed.append(pos)
-
-    return smoothed
+    def _get_selection_key(self, bounding_box: BoundingBox) -> float:
+        """対象物に依存するのでサブクラスで定義"""
+        pass

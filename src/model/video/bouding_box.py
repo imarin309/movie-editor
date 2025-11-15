@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 @dataclass
 class BoundingBox:
-    """バウンディングボックスを表すデータクラス"""
 
     x_min: float
     y_min: float

@@ -1,6 +1,6 @@
 from typing import List
 
-from model.video.segment import Segment
+from src.model import Segment
 
 
 class SegmentService:
