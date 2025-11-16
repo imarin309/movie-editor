@@ -53,4 +53,4 @@
     area = width × height
 ```
 
-**定義場所**: `src/model/video/bouding_box.py`
+**定義場所**: `src/model/video/bounding_box.py`

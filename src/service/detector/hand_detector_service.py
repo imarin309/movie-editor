@@ -4,6 +4,7 @@ import mediapipe as mp
 
 from src.model import BoundingBox, Config
 from src.service.bounding_box_service import BoundingBoxService
+from src.service.detector.const import MIN_CONFIDENCE
 from src.service.detector.landmark_detector_service import LandmarkDetectorService
 
 
@@ -12,7 +13,7 @@ class HandDetectorService(LandmarkDetectorService):
     def __init__(self, video_path: str, config: Config):
         super().__init__(video_path, config)
 
-    def _create_detector(self, min_conf: float) -> Any:
+    def _create_detector(self) -> Any:
         """
         MediaPipe Hands検出器を作成する。
 
@@ -26,8 +27,8 @@ class HandDetectorService(LandmarkDetectorService):
         return mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
-            min_detection_confidence=min_conf,
-            min_tracking_confidence=min_conf,
+            min_detection_confidence=MIN_CONFIDENCE,
+            min_tracking_confidence=MIN_CONFIDENCE,
         )
 
     def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:

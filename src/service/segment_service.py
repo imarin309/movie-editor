@@ -2,6 +2,10 @@ from typing import List
 
 from src.model import Segment
 
+MIN_KEEP_SEC: float = 1.0  # この秒数より短いセグメントを除外
+MERGE_GAP_SEC: float = 0.25  # 小さな隙間で区切られたセグメントを結合する秒数
+PAD_SEC: float = 1.2  # 各セグメントの前後に追加するパディング秒数
+
 
 class SegmentService:
 
@@ -10,26 +14,19 @@ class SegmentService:
         cls,
         mask: List[bool],
         fps: float,
-        min_keep_sec: float,
-        pad_sec: float,
-        merge_gap_sec: float,
     ) -> List[Segment]:
         """True/False マスクから保持セグメント(秒)へ変換し、フィルタリング・結合・パディングを行う
 
         Args:
             mask: フレームごとのTrue/Falseマスク
             fps: マスクのFPS
-            min_keep_sec: この秒数より短いセグメントを除外
-            pad_sec: 各セグメントの前後に追加するパディング秒数
-            merge_gap_sec: 小さな隙間で区切られたセグメントを結合する秒数
-
         Returns:
             処理されたセグメントのリスト
         """
         raw_segments = cls._convert_mask_to_raw_segments(mask, fps)
-        filtered_segments = cls._filter_short_segments(raw_segments, min_keep_sec)
-        merged_segments = cls._merge_close_segments(filtered_segments, merge_gap_sec)
-        return cls._add_padding(merged_segments, pad_sec)
+        filtered_segments = cls._filter_short_segments(raw_segments)
+        merged_segments = cls._merge_close_segments(filtered_segments)
+        return cls._add_padding(merged_segments)
 
     @classmethod
     def clamp_segments_to_duration(
@@ -81,9 +78,7 @@ class SegmentService:
         return segments
 
     @staticmethod
-    def _filter_short_segments(
-        segments: List[Segment], min_keep_sec: float
-    ) -> List[Segment]:
+    def _filter_short_segments(segments: List[Segment]) -> List[Segment]:
         """短すぎるセグメントを除外
 
         Args:
@@ -93,17 +88,14 @@ class SegmentService:
         Returns:
             min_keep_sec以上の長さを持つセグメントのみ
         """
-        return [s for s in segments if (s.end - s.start) >= min_keep_sec]
+        return [s for s in segments if (s.end - s.start) >= MIN_KEEP_SEC]
 
     @staticmethod
-    def _merge_close_segments(
-        segments: List[Segment], merge_gap_sec: float
-    ) -> List[Segment]:
+    def _merge_close_segments(segments: List[Segment]) -> List[Segment]:
         """近接するセグメントを結合
 
         Args:
             segments: 結合対象のセグメント
-            merge_gap_sec: この秒数以下の隙間があるセグメントを結合
 
         Returns:
             結合されたセグメントのリスト
@@ -115,7 +107,7 @@ class SegmentService:
         current = segments[0]
 
         for segment in segments[1:]:
-            if (segment.start - current.end) <= merge_gap_sec:
+            if (segment.start - current.end) <= MERGE_GAP_SEC:
                 # 隙間が小さいので結合
                 current = Segment(current.start, segment.end)
             else:
@@ -127,5 +119,5 @@ class SegmentService:
         return merged
 
     @staticmethod
-    def _add_padding(segments: List[Segment], pad_sec: float) -> List[Segment]:
-        return [Segment(max(0.0, s.start - pad_sec), s.end + pad_sec) for s in segments]
+    def _add_padding(segments: List[Segment]) -> List[Segment]:
+        return [Segment(max(0.0, s.start - PAD_SEC), s.end + PAD_SEC) for s in segments]

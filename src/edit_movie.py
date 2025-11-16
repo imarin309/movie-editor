@@ -26,18 +26,10 @@ class EditMovie:
         logger.info(f"Output: {self.output_movie_path}")
 
         self.config = Config(
-            fps_sample=config.DEFAULT_FPS_SAMPLE,
-            min_conf=config.DEFAULT_MIN_CONFIDENCE,
-            min_area_ratio=config.DEFAULT_MIN_AREA_RATIO,
-            min_keep_sec=config.DEFAULT_MIN_KEEP_SEC,
-            pad_sec=config.DEFAULT_PAD_SEC,
-            merge_gap_sec=config.DEFAULT_MERGE_GAP_SEC,
-            landmark_horizontal_ratio=config.DEFAULT_CROP_HAND_HORIZONTAL_RATIO,
-            landmark_vertical_ratio=config.DEFAULT_CROP_HAND_VERTICAL_RATIO,
-            smooth_window_size=config.DEFAULT_SMOOTH_WINDOW_SIZE,
-            auto_zoom=config.DEFAULT_AUTO_ZOOM,
-            target_landmark_ratio=config.DEFAULT_TARGET_HAND_RATIO,
-            crop_zoom_ratio=config.DEFAULT_CROP_ZOOM_RATIO,
+            fps_sample=config.SAMPLING_FPS,
+            center_detection_ratio=config.CENTER_DETECTION_RATIO,
+            center_postion_x=config.CENTER_POSTION_X,
+            movie_speed=config.MOVIE_SPEED,
         )
 
     def _setup(self) -> None:
@@ -55,9 +47,6 @@ class EditMovie:
         segments = SegmentService.create_segments_from_mask(
             mask=self.detector.landmark_info.has_landmark_frame,
             fps=self.detector.effective_fps,
-            min_keep_sec=self.config.min_keep_sec,
-            pad_sec=self.config.pad_sec,
-            merge_gap_sec=self.config.merge_gap_sec,
         )
         self.segments = SegmentService.clamp_segments_to_duration(
             segments, self.duration
@@ -65,9 +54,9 @@ class EditMovie:
 
     def _concat_movie(self) -> None:
         clips = []
-        for s in self.segments:
-            start = max(0.0, min(s.start, self.source_clip.duration))
-            end = max(0.0, min(s.end, self.source_clip.duration))
+        for segment in self.segments:
+            start = max(0.0, min(segment.start, self.source_clip.duration))
+            end = max(0.0, min(segment.end, self.source_clip.duration))
             if end > start:
                 clips.append(self.source_clip.subclipped(start, end))
 
@@ -86,7 +75,9 @@ class EditMovie:
             self.source_clip.close()
 
     def _change_speed(self) -> None:
-        self.output_movie = self.output_movie.with_effects([vfx.MultiplySpeed(3.0)])
+        self.output_movie = self.output_movie.with_effects(
+            [vfx.MultiplySpeed(self.config.movie_speed)]
+        )
 
     def run(self) -> None:
 

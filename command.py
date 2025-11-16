@@ -3,7 +3,7 @@ import argparse
 from src.edit_movie import EditMovie
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(
         description="Detect hands (proxy for brush work) and cut video accordingly. (No ROI)"
     )

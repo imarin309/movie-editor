@@ -1,3 +1,4 @@
+import abc
 import math
 from typing import Any, List, Optional, Tuple
 
@@ -8,6 +9,7 @@ from src.model import BoundingBox, Config, LandmarkInfo
 from src.model.service_abstract.landmark_detector_abstract import (
     LandmarkDetectorAbstract,
 )
+from src.service.detector.const import MIN_TARGET_AREA
 from src.service.video_service import VideoService
 
 
@@ -15,16 +17,16 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
     video_path: str
     fps_sample: int
-    min_conf: float
-    min_area_ratio: float
+    center_position_x: float
+    center_detection_ratio: float
 
     def __init__(self, video_path: str, config: Config) -> None:
         self.video_path = video_path
         self.fps_sample = config.fps_sample
-        self.min_conf = config.min_conf
-        self.min_area_ratio = config.min_area_ratio
+        self.center_position_x = config.center_postion_x
+        self.center_detection_ratio = config.center_detection_ratio
 
-    def _make_video_editor(self):
+    def _make_video_editor(self) -> None:
 
         self.video_caputre = cv2.VideoCapture(self.video_path)
         if not self.video_caputre.isOpened():
@@ -34,7 +36,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
             self.video_meta.orig_fps, self.fps_sample
         )
 
-        self.detector = self._create_detector(self.min_conf)
+        self.detector = self._create_detector()
         self.bounding_boxes = self._calculate_process_frame()
 
     def _calculate_process_frame(self) -> List[Optional[List[BoundingBox]]]:
@@ -84,22 +86,35 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         return bounding_boxes
 
-    def _create_detector(self, min_conf: float) -> Any:
+    @abc.abstractmethod
+    def _create_detector(self) -> Any:
         """対象物に依存するのでサブクラスで定義する"""
         pass
 
+    @abc.abstractmethod
     def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
         """対象物に依存するのでサブクラスで定義する"""
         pass
 
-    def _is_valid_detection(
-        self, bounding_box: BoundingBox, min_area_ratio: float
-    ) -> bool:
-        """検出されたバウンディングボックスが有効かどうかを判定する"""
-        return bounding_box.area >= min_area_ratio
+    def _is_valid_detection(self, bounding_box: BoundingBox) -> bool:
+        """
+        検出されたバウンディングボックスが有効かどうかを判定する
+
+        面積チェックと中央位置チェックの両方を行う
+        """
+        # 面積チェック
+        if bounding_box.area < MIN_TARGET_AREA:
+            return False
+
+        # X座標の中央位置チェック
+        min_pos = self.center_position_x - self.center_detection_ratio
+        max_pos = self.center_position_x + self.center_detection_ratio
+        is_in_horizontal_range = min_pos <= bounding_box.center_x <= max_pos
+
+        return is_in_horizontal_range
 
     def _select_best_detection(
-        self, bounding_boxes: List[BoundingBox], min_area_ratio: float
+        self, bounding_boxes: List[BoundingBox]
     ) -> Optional[BoundingBox]:
         """
         複数の検出から最適なものを選択する。
@@ -108,7 +123,6 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         Args:
             bounding_boxes: 検出されたバウンディングボックスのリスト
-            min_area_ratio: 最小面積比
 
         Returns:
             選択されたバウンディングボックス、または有効な検出がない場合はNone
@@ -118,7 +132,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         for bounding_box in bounding_boxes:
             # 有効な検出のみを候補とする
-            if self._is_valid_detection(bounding_box, min_area_ratio):
+            if self._is_valid_detection(bounding_box):
                 key = self._get_selection_key(bounding_box)
                 if key > best_key:
                     best_key = key
@@ -143,9 +157,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
             has_detection = False
 
             if bounding_box is not None:
-                best_detection = self._select_best_detection(
-                    bounding_box, self.min_area_ratio
-                )
+                best_detection = self._select_best_detection(bounding_box)
 
                 if best_detection is not None:
                     position = (best_detection.center_x, best_detection.center_y)
@@ -162,6 +174,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
             landmark_position=positions,
         )
 
+    @abc.abstractmethod
     def _get_selection_key(self, bounding_box: BoundingBox) -> float:
         """対象物に依存するのでサブクラスで定義"""
         pass
