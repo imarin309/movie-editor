@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 
 import mediapipe as mp
 
-from src.model import BoundingBox, Config
+from src.model import BoundingBox, Config, VideoMetaData
 from src.service.bounding_box_service import BoundingBoxService
 from src.service.detector.const import MIN_CONFIDENCE
 from src.service.detector.landmark_detector_service import LandmarkDetectorService
@@ -10,8 +10,8 @@ from src.service.detector.landmark_detector_service import LandmarkDetectorServi
 
 class HandDetectorService(LandmarkDetectorService):
 
-    def __init__(self, video_path: str, config: Config):
-        super().__init__(video_path, config)
+    def __init__(self, video_path: str, config: Config, video_meta: VideoMetaData):
+        super().__init__(video_path, config, video_meta)
 
     def _create_detector(self) -> Any:
         """

@@ -5,12 +5,11 @@ from typing import Any, List, Optional, Tuple
 import cv2
 from tqdm import tqdm
 
-from src.model import BoundingBox, Config, LandmarkInfo
+from src.model import BoundingBox, Config, LandmarkInfo, VideoMetaData
 from src.model.service_abstract.landmark_detector_abstract import (
     LandmarkDetectorAbstract,
 )
 from src.service.detector.const import MIN_TARGET_AREA
-from src.service.video_service import VideoService
 
 
 class LandmarkDetectorService(LandmarkDetectorAbstract):
@@ -20,21 +19,19 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
     center_position_x: float
     center_detection_ratio: float
 
-    def __init__(self, video_path: str, config: Config) -> None:
+    def __init__(
+        self,
+        video_path: str,
+        config: Config,
+        video_meta: VideoMetaData,
+    ) -> None:
         self.video_path = video_path
         self.fps_sample = config.fps_sample
         self.center_position_x = config.center_postion_x
         self.center_detection_ratio = config.center_detection_ratio
+        self.video_meta = video_meta
 
     def _make_video_editor(self) -> None:
-
-        self.video_caputre = cv2.VideoCapture(self.video_path)
-        if not self.video_caputre.isOpened():
-            raise RuntimeError(f"Could not open video: {self.video_path}")
-        self.video_meta = VideoService.get_video_meta(self.video_caputre)
-        self.sampling_step, self.effective_fps = VideoService.get_effective_fps(
-            self.video_meta.orig_fps, self.fps_sample
-        )
 
         self.detector = self._create_detector()
         self.bounding_boxes = self._calculate_process_frame()
@@ -55,18 +52,20 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
         try:
             idx = 0
             pbar = tqdm(
-                total=math.ceil(self.video_meta.total_frames / self.sampling_step),
+                total=math.ceil(
+                    self.video_meta.total_frames / self.video_meta.sampling_step
+                ),
                 desc="detecting target...",
                 unit="f",
             )
 
             with self.detector:
                 while True:
-                    ret, frame = self.video_caputre.read()
+                    ret, frame = self.video_meta.video_capture.read()
                     if not ret:
                         break
 
-                    if idx % self.sampling_step != 0:
+                    if idx % self.video_meta.sampling_step != 0:
                         idx += 1
                         continue
 
@@ -82,7 +81,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
             pbar.close()
         finally:
-            self.video_caputre.release()
+            self.video_meta.video_capture.release()
 
         return bounding_boxes
 
