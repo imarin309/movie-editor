@@ -9,31 +9,29 @@ class VideoService:
     """動画の初期化とメタデータ取得を行うサービスクラス"""
 
     @classmethod
-    def get_video_meta(cls, video_capture: cv2.VideoCapture) -> VideoMetaData:
-        """
-        VideoCaptureを初期化し、動画のメタデータを取得する。
+    def get_video_meta(cls, input_movie_path: str, sampling_fps: int) -> VideoMetaData:
 
-        Args:
-            video_path: 動画ファイルのパス
-
-        Returns:
-            初期化されたVideoCaptureオブジェクトとメタデータ
-
-        Raises:
-            RuntimeError: 動画を開けない場合
-        """
-
+        video_capture = cv2.VideoCapture(input_movie_path)
+        if not video_capture.isOpened():
+            raise RuntimeError(f"Could not open video: {input_movie_path}")
+        original_fps = video_capture.get(cv2.CAP_PROP_FPS)
+        sampling_step, effective_fps = cls._get_effective_fps(
+            original_fps, sampling_fps
+        )
         metadata = VideoMetaData(
+            video_capture=video_capture,
             width=int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-            orig_fps=video_capture.get(cv2.CAP_PROP_FPS),
+            orig_fps=original_fps,
             total_frames=int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)),
+            sampling_step=sampling_step,
+            effective_fps=effective_fps,
         )
 
         return metadata
 
     @staticmethod
-    def get_effective_fps(original_fps: float, sampling_fps: int) -> Tuple[int, float]:
+    def _get_effective_fps(original_fps: float, sampling_fps: int) -> Tuple[int, float]:
         """
         元動画のFPSとサンプリングFPSから、実効FPSとフレームステップを計算する。
 

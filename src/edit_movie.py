@@ -7,6 +7,7 @@ import config
 from src.model import Config
 from src.service.detector import HandDetectorService
 from src.service.segment_service import SegmentService
+from src.service.video_service import VideoService
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -36,8 +37,13 @@ class EditMovie:
         self.source_clip = VideoFileClip(self.input_movie_path)
         with VideoFileClip(self.input_movie_path) as probe:
             self.duration = probe.duration
+        self.video_meta = VideoService.get_video_meta(
+            self.input_movie_path, self.config.fps_sample
+        )
         self.detector = HandDetectorService(
-            video_path=self.input_movie_path, config=self.config
+            video_path=self.input_movie_path,
+            config=self.config,
+            video_meta=self.video_meta,
         )
 
     def _detect_hand(self) -> None:
@@ -46,7 +52,7 @@ class EditMovie:
     def _make_segment(self) -> None:
         segments = SegmentService.create_segments_from_mask(
             mask=self.detector.landmark_info.has_landmark_frame,
-            fps=self.detector.effective_fps,
+            fps=self.video_meta.effective_fps,
         )
         self.segments = SegmentService.clamp_segments_to_duration(
             segments, self.duration

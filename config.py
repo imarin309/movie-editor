@@ -3,7 +3,7 @@
 対象物の検出区間を設定する：CENTER_DETECTION_RATIOをいじる
 """
 
-SAMPLING_FPS: int = 15
+SAMPLING_FPS: int = 5
 CENTER_POSTION_X: float = 0.7
 CENTER_DETECTION_RATIO: float = 0.3
 MOVIE_SPEED = 3
