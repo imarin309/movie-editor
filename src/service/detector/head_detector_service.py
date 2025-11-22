@@ -1,25 +1,20 @@
 import logging
-from typing import Any, List, Optional
+import math
+from typing import Any, List, Optional, Tuple
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 
-from src.model import BoundingBox, Config, VideoMetaData
-from src.service.detector.landmark_detector_service import LandmarkDetectorService
+from src.model import BoundingBox, Config, LandmarkInfo, VideoMetaData
+from src.service.detector.const import MIN_TARGET_AREA
 
 logger = logging.getLogger(__name__)
 
 
-class DummyDetector:
-    """色ベース検出用のダミー検出器"""
-
-    def process(self, frame: Any) -> Any:
-        """フレームをそのまま返す"""
-        return frame
-
-
-class HeadDetectorService(LandmarkDetectorService):
+class HeadDetectorService:
     """
+    TODO: 全体的にリファクタリング
     色+形状ベースの頭部検出
 
     画面下部の特定領域（下部10%）に暗い色（黒）が一定面積以上占めており、
@@ -39,8 +34,10 @@ class HeadDetectorService(LandmarkDetectorService):
     MIN_ASPECT_RATIO = 1.0  # 最小アスペクト比（幅/高さ）
     MAX_ASPECT_RATIO = 15.0  # 最大アスペクト比（横長の形状も許容）
 
-    def __init__(self, video_path: str, config: Config, video_meta: VideoMetaData):
-        super().__init__(video_path, config, video_meta)
+    def __init__(self, config: Config, video_meta: VideoMetaData):
+        self.center_position_x = config.center_postion_x
+        self.center_detection_ratio = config.center_detection_ratio
+        self.video_meta = video_meta
         self.frame_count = 0
 
     def _is_semicircle_shape(self, contour: np.ndarray) -> bool:
@@ -152,19 +149,44 @@ class HeadDetectorService(LandmarkDetectorService):
             and is_valid_aspect
         )
 
-    def _create_detector(self) -> Any:
-        """
-        ダミー検出器を作成する。
+    def _make_video_editor(self) -> None:
+        self.bounding_boxes = self._calculate_process_frame()
 
-        色ベース検出では特別な検出器は不要なため、
-        フレームをそのまま返すダミーオブジェクトを返す。
+    def _calculate_process_frame(self) -> List[Optional[BoundingBox]]:
+        bounding_boxes = []
 
-        Returns:
-            ダミー検出器インスタンス
-        """
-        return DummyDetector()
+        try:
+            idx = 0
+            pbar = tqdm(
+                total=math.ceil(
+                    self.video_meta.total_frames / self.video_meta.sampling_step
+                ),
+                desc="detecting head...",
+                unit="f",
+            )
 
-    def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
+            while True:
+                ret, frame = self.video_meta.video_capture.read()
+                if not ret:
+                    break
+
+                if idx % self.video_meta.sampling_step != 0:
+                    idx += 1
+                    continue
+
+                bounding_box = self._make_bounding_box(frame)
+                bounding_boxes.append(bounding_box)
+
+                pbar.update(1)
+                idx += 1
+
+            pbar.close()
+        finally:
+            self.video_meta.video_capture.release()
+
+        return bounding_boxes
+
+    def _make_bounding_box(self, result: Any) -> Optional[BoundingBox]:
         """
         画面下部の暗い領域から頭部のバウンディングボックスを生成する。
 
@@ -172,7 +194,7 @@ class HeadDetectorService(LandmarkDetectorService):
         閾値以上なら頭が映っていると判定してバウンディングボックスを返す。
 
         Args:
-            result: フレーム（RGB画像）
+            result: フレーム（BGR画像）
 
         Returns:
             頭部のバウンディングボックスのリスト、または検出されなかった場合はNone
@@ -185,7 +207,7 @@ class HeadDetectorService(LandmarkDetectorService):
         bottom_region = frame[bottom_region_start:, :]
 
         # HSV色空間に変換
-        hsv = cv2.cvtColor(bottom_region, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(bottom_region, cv2.COLOR_BGR2HSV)
 
         # 暗い色（黒）を検出
         # H: 0-180（色相）, S: 0-255（彩度）, V: 0-255（明度）
@@ -257,22 +279,46 @@ class HeadDetectorService(LandmarkDetectorService):
                     center_y=1.0 - self.BOTTOM_REGION_RATIO / 2,
                 )
 
-                return [bounding_box]
+                if self._is_valid_detection(bounding_box):
+                    return bounding_box
         else:
             self.frame_count += 1
 
         return None
 
-    def _get_selection_key(self, bounding_box: BoundingBox) -> float:
-        """
-        頭部の選択基準値を返す。
+    def _is_valid_detection(self, bounding_box: BoundingBox) -> bool:
+        if bounding_box.area < MIN_TARGET_AREA:
+            return False
 
-        色ベース検出では常に同じ領域を返すため、面積を返す。
+        min_pos = self.center_position_x - self.center_detection_ratio
+        max_pos = self.center_position_x + self.center_detection_ratio
+        is_in_horizontal_range = min_pos <= bounding_box.center_x <= max_pos
 
-        Args:
-            bounding_box: 検出された頭部のバウンディングボックス
+        return is_in_horizontal_range
 
-        Returns:
-            選択基準値（面積）
-        """
-        return bounding_box.area
+    def extract_landmark_info(self) -> None:
+        self._make_video_editor()
+
+        positions: List[Optional[Tuple[float, float]]] = []
+        sizes: List[Optional[Tuple[float, float]]] = []
+        has_detections: List[bool] = []
+
+        for bounding_box in self.bounding_boxes:
+            position = None
+            size = None
+            has_detection = False
+
+            if bounding_box is not None:
+                position = (bounding_box.center_x, bounding_box.center_y)
+                size = (bounding_box.width, bounding_box.height)
+                has_detection = True
+
+            positions.append(position)
+            sizes.append(size)
+            has_detections.append(has_detection)
+
+        self.landmark_info = LandmarkInfo(
+            has_landmark_frame=has_detections,
+            landmark_size=sizes,
+            landmark_position=positions,
+        )
