@@ -18,7 +18,7 @@ class VideoService:
         sampling_step, effective_fps = cls._get_effective_fps(
             original_fps, sampling_fps
         )
-        
+
         metadata = VideoMetaData(
             video_capture=video_capture,
             width=int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
