@@ -4,3 +4,6 @@
 
 # movie
 *.mp4
+*.png
+
+*test*.py
