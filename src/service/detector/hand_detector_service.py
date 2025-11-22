@@ -10,8 +10,8 @@ from src.service.detector.landmark_detector_service import LandmarkDetectorServi
 
 class HandDetectorService(LandmarkDetectorService):
 
-    def __init__(self, video_path: str, config: Config, video_meta: VideoMetaData):
-        super().__init__(video_path, config, video_meta)
+    def __init__(self, config: Config, video_meta: VideoMetaData):
+        super().__init__(config, video_meta)
 
     def _create_detector(self) -> Any:
         """
@@ -51,12 +51,6 @@ class HandDetectorService(LandmarkDetectorService):
     def _get_selection_key(self, bounding_box: BoundingBox) -> float:
         """
         手の選択基準値を返す。
-
         右側の手を優先するため、x座標の中心を返す。
-
-        Args:
-            bounding_box: 検出された手のバウンディングボックス
-        Returns:
-            選択基準値（x座標の中心、大きいほど右側）
         """
         return bounding_box.center_x

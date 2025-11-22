@@ -50,7 +50,6 @@ class EditMovie:
         # TODO: video_metaの変数を共通化する
         self.video_meta = hand_video_meta
         self.hand_detector = HandDetectorService(
-            video_path=self.input_movie_path,
             config=self.config,
             video_meta=hand_video_meta,
         )
@@ -62,7 +61,6 @@ class EditMovie:
             self.input_movie_path, self.config.fps_sample
         )
         self.head_detector = HeadDetectorService(
-            video_path=self.input_movie_path,
             config=self.config,
             video_meta=head_video_meta,
         )

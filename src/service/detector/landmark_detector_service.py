@@ -19,14 +19,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
     center_position_x: float
     center_detection_ratio: float
 
-    def __init__(
-        self,
-        video_path: str,
-        config: Config,
-        video_meta: VideoMetaData,
-    ) -> None:
-        self.video_path = video_path
-        self.fps_sample = config.fps_sample
+    def __init__(self, config: Config, video_meta: VideoMetaData) -> None:
         self.center_position_x = config.center_postion_x
         self.center_detection_ratio = config.center_detection_ratio
         self.video_meta = video_meta
