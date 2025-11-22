@@ -14,13 +14,11 @@ class VideoService:
         video_capture = cv2.VideoCapture(input_movie_path)
         if not video_capture.isOpened():
             raise RuntimeError(f"Could not open video: {input_movie_path}")
-
-        if not video_capture.isOpened():
-            raise RuntimeError(f"Could not open video: {input_movie_path}")
         original_fps = video_capture.get(cv2.CAP_PROP_FPS)
         sampling_step, effective_fps = cls._get_effective_fps(
             original_fps, sampling_fps
         )
+        
         metadata = VideoMetaData(
             video_capture=video_capture,
             width=int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
