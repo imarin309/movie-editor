@@ -128,6 +128,6 @@ class EditMovie:
             logger.info("対象物が検出されませんでした。終了します。")
             return
         self._concat_movie()
-        # self._change_speed()
+        self._change_speed()
         self._output()
         self._clean()
