@@ -1,11 +1,11 @@
 import abc
 import math
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
 import cv2
 from tqdm import tqdm
 
-from src.model import BoundingBox, Config, LandmarkInfo, VideoMetaData
+from src.model import BoundingBox, Config, VideoMetaData
 from src.model.service_abstract.landmark_detector_abstract import (
     LandmarkDetectorAbstract,
 )
@@ -132,39 +132,10 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         return best_detection
 
-    def extract_landmark_info(self) -> None:
-        """
-        動画を読み、フレームごとにランドマークの中心座標とサイズを返す。
+    def extract_hand_mask(self) -> List[bool]:
 
-        """
         self._make_video_editor()
-
-        positions: List[Optional[Tuple[float, float]]] = []
-        sizes: List[Optional[Tuple[float, float]]] = []
-        has_detections: List[bool] = []
-
-        for bounding_box in self.bounding_boxes:
-            position = None
-            size = None
-            has_detection = False
-
-            if bounding_box is not None:
-                best_detection = self._select_best_detection(bounding_box)
-
-                if best_detection is not None:
-                    position = (best_detection.center_x, best_detection.center_y)
-                    size = (best_detection.width, best_detection.height)
-                    has_detection = True
-
-            positions.append(position)
-            sizes.append(size)
-            has_detections.append(has_detection)
-
-        self.landmark_info = LandmarkInfo(
-            has_landmark_frame=has_detections,
-            landmark_size=sizes,
-            landmark_position=positions,
-        )
+        return [bool(bounding_box) for bounding_box in self.bounding_boxes]
 
     @abc.abstractmethod
     def _get_selection_key(self, bounding_box: BoundingBox) -> float:
