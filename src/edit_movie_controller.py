@@ -6,13 +6,14 @@ from src.edit_movie import EditMovie
 logger = logging.getLogger(__name__)
 
 
-
 def _run_edit_movie(input_movie_path: str, is_ignore_head_detect: bool) -> None:
     edit_movie = EditMovie(input_movie_path, is_ignore_head_detect)
     edit_movie.run()
 
 
-def edit_movie_controller(target_path: str, is_ignore_head_detect: bool = False) -> None:
+def edit_movie_controller(
+    target_path: str, is_ignore_head_detect: bool = False
+) -> None:
     path = Path(target_path)
 
     if not path.exists():
