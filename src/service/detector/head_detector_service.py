@@ -1,12 +1,11 @@
 import logging
-import math
 from typing import Any, List, Optional
 
 import cv2
 import numpy as np
-from tqdm import tqdm
 
 from src.model import BoundingBox, Config, VideoMetaData
+from src.service.bounding_boxes_service import BoundingBoxesService
 from src.service.detector.const import MIN_TARGET_AREA
 
 logger = logging.getLogger(__name__)
@@ -136,40 +135,6 @@ class HeadDetectorService:
             and is_valid_aspect
         )
 
-    def _make_bouding_boxes(self) -> List[Optional[BoundingBox]]:
-        bounding_boxes = []
-
-        try:
-            idx = 0
-            pbar = tqdm(
-                total=math.ceil(
-                    self.video_meta.total_frames / self.video_meta.sampling_step
-                ),
-                desc="detecting head...",
-                unit="f",
-            )
-
-            while True:
-                ret, frame = self.video_meta.video_capture.read()
-                if not ret:
-                    break
-
-                if idx % self.video_meta.sampling_step != 0:
-                    idx += 1
-                    continue
-
-                bounding_box = self._make_bounding_box(frame)
-                bounding_boxes.append(bounding_box)
-
-                pbar.update(1)
-                idx += 1
-
-            pbar.close()
-        finally:
-            self.video_meta.video_capture.release()
-
-        return bounding_boxes
-
     def _make_bounding_box(self, result: Any) -> Optional[BoundingBox]:
         """
         画面下部の暗い領域から頭部のバウンディングボックスを生成する。
@@ -281,5 +246,8 @@ class HeadDetectorService:
         return is_in_horizontal_range
 
     def extract_head_mask(self) -> List[bool]:
-        self.bounding_boxes = self._make_bouding_boxes()
+        self.bounding_boxes = BoundingBoxesService.make_bounding_boxes(
+            self.video_meta,
+            self._make_bounding_box,
+        )
         return [bool(bounding_box) for bounding_box in self.bounding_boxes]

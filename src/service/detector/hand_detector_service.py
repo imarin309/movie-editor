@@ -1,5 +1,6 @@
 from typing import Any, List, Optional
 
+import cv2
 import mediapipe as mp
 
 from src.model import BoundingBox, Config, VideoMetaData
@@ -31,16 +32,19 @@ class HandDetectorService(LandmarkDetectorService):
             min_tracking_confidence=MIN_CONFIDENCE,
         )
 
-    def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
+    def _make_bounding_box(self, frame: Any) -> Optional[List[BoundingBox]]:
         """
-        MediaPipe Handsの検出結果からバウンディングボックスのリストを生成する。
+        フレームから手を検出してバウンディングボックスのリストを生成する。
 
         Args:
-            result: MediaPipe Handsの検出結果
+            frame: BGRフレーム
 
         Returns:
             手のバウンディングボックスのリスト、または検出されなかった場合はNone
         """
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        result = self.detector.process(rgb)
+
         if result.multi_hand_landmarks and result.multi_handedness:
             return [
                 BoundingBoxService.calculate_from_landmarks(hand_landmarks)

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List, Optional, Union
 
 
 @dataclass
@@ -13,3 +14,6 @@ class BoundingBox:
     area: float
     center_x: float
     center_y: float
+
+
+BoundingBoxes = List[Optional[Union[BoundingBox, List[BoundingBox]]]]
