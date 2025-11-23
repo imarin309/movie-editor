@@ -11,28 +11,30 @@ from src.service.detector.const import MIN_TARGET_AREA
 
 logger = logging.getLogger(__name__)
 
+# area
+BOTTOM_REGION_RATIO = 0.1  # 下部領域の割合（画面下部から何%を対象とするか）
+
+# color
+DARK_THRESHOLD = 60  # 暗い色の閾値（HSVのV値） V < 50:暗い
+DARK_RATIO_THRESHOLD = (
+    0.4  # 暗いピクセルの割合閾値（この値以上なら頭が映っていると判定）
+)
+
+# shape
+MIN_CIRCULARITY = 0.1  # 最小円形度
+MAX_CIRCULARITY = 1.0  # 最大円形度
+MIN_ASPECT_RATIO = 1.0  # 最小アスペクト比（幅/高さ）
+MAX_ASPECT_RATIO = 15.0  # 最大アスペクト比（横長の形状も許容）
+
 
 class HeadDetectorService:
     """
     TODO: 全体的にリファクタリング
     色+形状ベースの頭部検出
 
-    画面下部の特定領域（下部10%）に暗い色（黒）が一定面積以上占めており、
+    画面下部の特定領域に暗い色が一定面積以上占めており、
     かつその輪郭が半円形状である場合、頭が映っていると判定する。
     """
-
-    # 下部領域の割合（画面下部から何%を対象とするか）
-    BOTTOM_REGION_RATIO = 0.1  # 下部10%
-    # 暗い色の閾値（HSVのV値）
-    DARK_THRESHOLD = 60  # V < 50を暗いとする
-    # 暗いピクセルの割合閾値（この値以上なら頭が映っていると判定）
-    DARK_RATIO_THRESHOLD = 0.4  # 30%以上
-
-    # 形状判定のパラメータ
-    MIN_CIRCULARITY = 0.1  # 最小円形度（緩い条件）
-    MAX_CIRCULARITY = 1.0  # 最大円形度
-    MIN_ASPECT_RATIO = 1.0  # 最小アスペクト比（幅/高さ）
-    MAX_ASPECT_RATIO = 15.0  # 最大アスペクト比（横長の形状も許容）
 
     def __init__(self, config: Config, video_meta: VideoMetaData):
         self.center_position_x = config.center_postion_x
@@ -53,10 +55,8 @@ class HeadDetectorService:
         Returns:
             該当する形状ならTrue
         """
-        # 面積と周囲長を計算
         area = cv2.contourArea(contour)
         perimeter = cv2.arcLength(contour, True)
-
         if perimeter == 0:
             return False
 
@@ -67,7 +67,6 @@ class HeadDetectorService:
         x, _, w, h = cv2.boundingRect(contour)
         if h == 0:
             return False
-
         aspect_ratio = w / h
 
         # 輪郭の点を取得して形状を詳細に解析
@@ -123,22 +122,11 @@ class HeadDetectorService:
                 has_side_bulge = True
 
         # 判定基準
-        is_horizontal = aspect_ratio >= self.MIN_ASPECT_RATIO  # 横長
+        is_horizontal = aspect_ratio >= MIN_ASPECT_RATIO  # 横長
         is_top_flat = top_flatness < 0.15  # 上部が平ら（ばらつきが小さい）
         is_bottom_flat = bottom_flatness < 0.15  # 下部が平ら
-        is_valid_circularity = (
-            self.MIN_CIRCULARITY <= circularity <= self.MAX_CIRCULARITY
-        )
-        is_valid_aspect = aspect_ratio <= self.MAX_ASPECT_RATIO
-
-        # デバッグログ
-        if self.frame_count < 10:
-            logger.info(
-                f"  Shape check: circularity={circularity:.3f}, "
-                f"aspect_ratio={aspect_ratio:.2f}, "
-                f"top_flat={top_flatness:.3f}, bottom_flat={bottom_flatness:.3f}, "
-                f"side_bulge={has_side_bulge}"
-            )
+        is_valid_circularity = MIN_CIRCULARITY <= circularity <= MAX_CIRCULARITY
+        is_valid_aspect = aspect_ratio <= MAX_ASPECT_RATIO
 
         return (
             is_horizontal
@@ -149,10 +137,7 @@ class HeadDetectorService:
             and is_valid_aspect
         )
 
-    def _make_video_editor(self) -> None:
-        self.bounding_boxes = self._calculate_process_frame()
-
-    def _calculate_process_frame(self) -> List[Optional[BoundingBox]]:
+    def _make_bouding_boxes(self) -> List[Optional[BoundingBox]]:
         bounding_boxes = []
 
         try:
@@ -203,7 +188,7 @@ class HeadDetectorService:
         height, width = frame.shape[:2]
 
         # 画面下部の領域を取得
-        bottom_region_start = int(height * (1.0 - self.BOTTOM_REGION_RATIO))
+        bottom_region_start = int(height * (1.0 - BOTTOM_REGION_RATIO))
         bottom_region = frame[bottom_region_start:, :]
 
         # HSV色空間に変換
@@ -213,7 +198,7 @@ class HeadDetectorService:
         # H: 0-180（色相）, S: 0-255（彩度）, V: 0-255（明度）
         # 暗い色の定義: V（明度）が低い
         lower_dark = np.array([0, 0, 0])
-        upper_dark = np.array([180, 255, self.DARK_THRESHOLD])
+        upper_dark = np.array([180, 255, DARK_THRESHOLD])
 
         mask = cv2.inRange(hsv, lower_dark, upper_dark)
 
@@ -230,7 +215,7 @@ class HeadDetectorService:
             )
 
         # 閾値以上なら形状チェックを実行
-        if dark_ratio >= self.DARK_RATIO_THRESHOLD:
+        if dark_ratio >= DARK_RATIO_THRESHOLD:
             # 輪郭を検出
             contours, _ = cv2.findContours(
                 mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -260,12 +245,12 @@ class HeadDetectorService:
             if valid_contours:
                 # 頭が映っている場合、下部領域全体をバウンディングボックスとして返す
                 x_min = 0.0
-                y_min = 1.0 - self.BOTTOM_REGION_RATIO
+                y_min = 1.0 - BOTTOM_REGION_RATIO
                 x_max = 1.0
                 y_max = 1.0
                 width = 1.0
-                height = self.BOTTOM_REGION_RATIO
-                area = self.BOTTOM_REGION_RATIO
+                height = BOTTOM_REGION_RATIO
+                area = BOTTOM_REGION_RATIO
 
                 bounding_box = BoundingBox(
                     x_min=x_min,
@@ -276,7 +261,7 @@ class HeadDetectorService:
                     height=height,
                     area=area,
                     center_x=0.5,
-                    center_y=1.0 - self.BOTTOM_REGION_RATIO / 2,
+                    center_y=1.0 - BOTTOM_REGION_RATIO / 2,
                 )
 
                 if self._is_valid_detection(bounding_box):
@@ -297,7 +282,7 @@ class HeadDetectorService:
         return is_in_horizontal_range
 
     def extract_landmark_info(self) -> None:
-        self._make_video_editor()
+        self.bounding_boxes = self._make_bouding_boxes()
 
         positions: List[Optional[Tuple[float, float]]] = []
         sizes: List[Optional[Tuple[float, float]]] = []
