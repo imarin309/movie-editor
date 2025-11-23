@@ -75,7 +75,7 @@ class EditMovie:
             config=self.config,
             video_meta=hand_video_meta,
         )
-        self.hand_mask = self.hand_detector.extract_hand_mask()
+        self.hand_mask = self.hand_detector.extract_mask()
 
     def _detect_head(self) -> None:
         head_video_meta = VideoService.get_video_meta(

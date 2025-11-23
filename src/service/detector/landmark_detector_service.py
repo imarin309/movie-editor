@@ -1,14 +1,11 @@
 import abc
-import math
 from typing import Any, List, Optional
-
-import cv2
-from tqdm import tqdm
 
 from src.model import BoundingBox, Config, VideoMetaData
 from src.model.service_abstract.landmark_detector_abstract import (
     LandmarkDetectorAbstract,
 )
+from src.service.bounding_boxes_service import BoundingBoxesService
 from src.service.detector.const import MIN_TARGET_AREA
 
 
@@ -24,59 +21,13 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
         self.center_detection_ratio = config.center_detection_ratio
         self.video_meta = video_meta
 
-    def _make_video_editor(self) -> None:
-
+    def _make_bounding_boxes(self) -> None:
         self.detector = self._create_detector()
-        self.bounding_boxes = self._calculate_process_frame()
-
-    def _calculate_process_frame(self) -> List[Optional[List[BoundingBox]]]:
-        """
-        動画フレームをサンプリングして処理し、各フレームの検出結果をリストで返す。
-
-        元動画の全フレームではなく、fps_sampleに基づいて計算されたステップ間隔で
-        フレームをサンプリングして処理する。
-        検出対象は _create_detector() を実装するサブクラスによって決定される。
-
-        Returns:
-            各フレームのバウンディングボックスのリスト、または検出されなかった場合はNone
-        """
-        bounding_boxes = []
-
-        try:
-            idx = 0
-            pbar = tqdm(
-                total=math.ceil(
-                    self.video_meta.total_frames / self.video_meta.sampling_step
-                ),
-                desc="detecting target...",
-                unit="f",
+        with self.detector:
+            self.bounding_boxes = BoundingBoxesService.make_bounding_boxes(
+                self.video_meta,
+                self._make_bounding_box,
             )
-
-            with self.detector:
-                while True:
-                    ret, frame = self.video_meta.video_capture.read()
-                    if not ret:
-                        break
-
-                    if idx % self.video_meta.sampling_step != 0:
-                        idx += 1
-                        continue
-
-                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    result = self.detector.process(rgb)
-
-                    bounding_box = self._make_bounding_box(result)
-
-                    bounding_boxes.append(bounding_box)
-
-                    pbar.update(1)
-                    idx += 1
-
-            pbar.close()
-        finally:
-            self.video_meta.video_capture.release()
-
-        return bounding_boxes
 
     @abc.abstractmethod
     def _create_detector(self) -> Any:
@@ -84,7 +35,7 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
         pass
 
     @abc.abstractmethod
-    def _make_bounding_box(self, result: Any) -> Optional[List[BoundingBox]]:
+    def _make_bounding_box(self, frame: Any) -> Optional[List[BoundingBox]]:
         """対象物に依存するのでサブクラスで定義する"""
         pass
 
@@ -132,9 +83,9 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         return best_detection
 
-    def extract_hand_mask(self) -> List[bool]:
+    def extract_mask(self) -> List[bool]:
 
-        self._make_video_editor()
+        self._make_bounding_boxes()
         return [bool(bounding_box) for bounding_box in self.bounding_boxes]
 
     @abc.abstractmethod
