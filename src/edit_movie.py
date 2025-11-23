@@ -111,8 +111,6 @@ class EditMovie:
 
     def run(self) -> None:
 
-        print(self.is_ignore_head_detect)
-        print("dddddddd")
         self._setup()
         self._detect_hand()
         if not self.is_ignore_head_detect:

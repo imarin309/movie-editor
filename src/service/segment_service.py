@@ -79,15 +79,7 @@ class SegmentService:
 
     @staticmethod
     def _filter_short_segments(segments: List[Segment]) -> List[Segment]:
-        """短すぎるセグメントを除外
-
-        Args:
-            segments: フィルタリング対象のセグメント
-            min_keep_sec: 最小保持秒数
-
-        Returns:
-            min_keep_sec以上の長さを持つセグメントのみ
-        """
+        """segmentsをmin_keep_sec以上の長さを持つもののみにする"""
         return [s for s in segments if (s.end - s.start) >= MIN_KEEP_SEC]
 
     @staticmethod
