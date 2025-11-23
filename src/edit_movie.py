@@ -2,10 +2,10 @@ import logging
 from pathlib import Path
 from typing import List
 
-from moviepy import VideoFileClip, concatenate_videoclips, vfx
+from moviepy import VideoClip, VideoFileClip, concatenate_videoclips, vfx
 
 import config
-from src.model import Config
+from src.model import Config, Segment, VideoMetaData
 from src.service.detector import HandDetectorService
 from src.service.detector.head_detector_service import HeadDetectorService
 from src.service.segment_service import SegmentService
@@ -18,6 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 class EditMovie:
+
+    input_movie_path: str
+    output_movie_path: str
+    is_ignore_head_detect: bool
+    config: Config
+
+    source_clip: VideoFileClip
+    duration: float
+    video_meta: VideoMetaData
+
+    hand_detector: HandDetectorService
+    head_detector: HeadDetectorService
+
+    hand_mask: List[bool]
+    head_mask: List[bool]
+    combined_mask: List[bool]
+
+    segments: List[Segment]
+
+    output_movie: VideoClip
 
     def __init__(self, input_movie_path: str, is_ignore_head_detect: bool) -> None:
         self.input_movie_path = input_movie_path
