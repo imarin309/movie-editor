@@ -6,10 +6,12 @@ from moviepy import VideoClip, VideoFileClip, concatenate_videoclips, vfx
 
 import config
 from src.model import Config, Segment, VideoMetaData
-from src.service.detector import HandDetectorService
-from src.service.detector.head_detector_service import HeadDetectorService
-from src.service.segment_service import SegmentService
-from src.service.video_service import VideoService
+from src.service import (
+    HandDetectorService,
+    HeadDetectorService,
+    SegmentService,
+    VideoService,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -73,8 +75,7 @@ class EditMovie:
             config=self.config,
             video_meta=hand_video_meta,
         )
-        self.hand_detector.extract_landmark_info()
-        self.hand_mask = self.hand_detector.landmark_info.has_landmark_frame
+        self.hand_mask = self.hand_detector.extract_hand_mask()
 
     def _detect_head(self) -> None:
         head_video_meta = VideoService.get_video_meta(
@@ -84,8 +85,7 @@ class EditMovie:
             config=self.config,
             video_meta=head_video_meta,
         )
-        self.head_detector.extract_landmark_info()
-        self.head_mask = self.head_detector.landmark_info.has_landmark_frame
+        self.head_mask = self.head_detector.extract_head_mask()
 
     def _combined_mask(self) -> None:
         self.combined_mask = [

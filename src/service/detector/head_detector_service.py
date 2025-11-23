@@ -1,12 +1,12 @@
 import logging
 import math
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
 import cv2
 import numpy as np
 from tqdm import tqdm
 
-from src.model import BoundingBox, Config, LandmarkInfo, VideoMetaData
+from src.model import BoundingBox, Config, VideoMetaData
 from src.service.detector.const import MIN_TARGET_AREA
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,6 @@ MAX_ASPECT_RATIO = 15.0  # 最大アスペクト比（横長の形状も許容�
 
 class HeadDetectorService:
     """
-    TODO: 全体的にリファクタリング
     色+形状ベースの頭部検出
 
     画面下部の特定領域に暗い色が一定面積以上占めており、
@@ -281,29 +280,6 @@ class HeadDetectorService:
 
         return is_in_horizontal_range
 
-    def extract_landmark_info(self) -> None:
+    def extract_head_mask(self) -> List[bool]:
         self.bounding_boxes = self._make_bouding_boxes()
-
-        positions: List[Optional[Tuple[float, float]]] = []
-        sizes: List[Optional[Tuple[float, float]]] = []
-        has_detections: List[bool] = []
-
-        for bounding_box in self.bounding_boxes:
-            position = None
-            size = None
-            has_detection = False
-
-            if bounding_box is not None:
-                position = (bounding_box.center_x, bounding_box.center_y)
-                size = (bounding_box.width, bounding_box.height)
-                has_detection = True
-
-            positions.append(position)
-            sizes.append(size)
-            has_detections.append(has_detection)
-
-        self.landmark_info = LandmarkInfo(
-            has_landmark_frame=has_detections,
-            landmark_size=sizes,
-            landmark_position=positions,
-        )
+        return [bool(bounding_box) for bounding_box in self.bounding_boxes]
