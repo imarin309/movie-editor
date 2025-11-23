@@ -28,9 +28,7 @@ class BoundingBoxesService:
         try:
             idx = 0
             pbar = tqdm(
-                total=math.ceil(
-                    video_meta.total_frames / video_meta.sampling_step
-                ),
+                total=math.ceil(video_meta.total_frames / video_meta.sampling_step),
                 desc="detecting...",
                 unit="f",
             )
