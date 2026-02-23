@@ -1,10 +1,7 @@
 from typing import List
 
+import config
 from src.model import Segment
-
-MIN_KEEP_SEC: float = 1.0  # この秒数より短いセグメントを除外
-MERGE_GAP_SEC: float = 0.25  # 小さな隙間で区切られたセグメントを結合する秒数
-PAD_SEC: float = 1.2  # 各セグメントの前後に追加するパディング秒数
 
 
 class SegmentService:
@@ -80,7 +77,7 @@ class SegmentService:
     @staticmethod
     def _filter_short_segments(segments: List[Segment]) -> List[Segment]:
         """segmentsをmin_keep_sec以上の長さを持つもののみにする"""
-        return [s for s in segments if (s.end - s.start) >= MIN_KEEP_SEC]
+        return [s for s in segments if (s.end - s.start) >= config.MIN_KEEP_SEC]
 
     @staticmethod
     def _merge_close_segments(segments: List[Segment]) -> List[Segment]:
@@ -99,7 +96,7 @@ class SegmentService:
         current = segments[0]
 
         for segment in segments[1:]:
-            if (segment.start - current.end) <= MERGE_GAP_SEC:
+            if (segment.start - current.end) <= config.MERGE_GAP_SEC:
                 # 隙間が小さいので結合
                 current = Segment(current.start, segment.end)
             else:
@@ -112,4 +109,4 @@ class SegmentService:
 
     @staticmethod
     def _add_padding(segments: List[Segment]) -> List[Segment]:
-        return [Segment(max(0.0, s.start - PAD_SEC), s.end + PAD_SEC) for s in segments]
+        return [Segment(max(0.0, s.start - config.PAD_SEC), s.end + config.PAD_SEC) for s in segments]

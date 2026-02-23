@@ -60,8 +60,7 @@ class EditMovie:
 
     def _setup(self) -> None:
         self.source_clip = VideoFileClip(self.input_movie_path)
-        with VideoFileClip(self.input_movie_path) as probe:
-            self.duration = probe.duration
+        self.duration = self.source_clip.duration
 
     def _detect_hand(self) -> None:
         """手と顔を検出し、手があり顔がないフレームのマスクを生成"""
