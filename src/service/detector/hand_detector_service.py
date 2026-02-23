@@ -5,7 +5,7 @@ import mediapipe as mp
 
 from src.model import BoundingBox, Config, VideoMetaData
 from src.service.bounding_box_service import BoundingBoxService
-from src.service.detector.const import MIN_CONFIDENCE
+from src.service.detector.const import MAX_DETECT_WIDTH, MIN_CONFIDENCE
 from src.service.detector.landmark_detector_service import LandmarkDetectorService
 
 
@@ -42,6 +42,9 @@ class HandDetectorService(LandmarkDetectorService):
         Returns:
             手のバウンディングボックスのリスト、または検出されなかった場合はNone
         """
+        h, w = frame.shape[:2]
+        if w > MAX_DETECT_WIDTH:
+            frame = cv2.resize(frame, (MAX_DETECT_WIDTH, int(h * MAX_DETECT_WIDTH / w)))
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         result = self.detector.process(rgb)
 

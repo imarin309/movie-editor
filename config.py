@@ -7,3 +7,8 @@ SAMPLING_FPS: int = 5
 CENTER_POSTION_X: float = 0.7
 CENTER_DETECTION_RATIO: float = 0.3
 MOVIE_SPEED = 3
+
+# セグメント処理の設定
+MIN_KEEP_SEC: float = 1.0
+MERGE_GAP_SEC: float = 0.25
+PAD_SEC: float = 1.2

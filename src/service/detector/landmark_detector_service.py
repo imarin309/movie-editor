@@ -86,7 +86,12 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
     def extract_mask(self) -> List[bool]:
 
         self._make_bounding_boxes()
-        return [bool(bounding_box) for bounding_box in self.bounding_boxes]
+        return [
+            self._select_best_detection(bb) is not None
+            if isinstance(bb, list)
+            else False
+            for bb in self.bounding_boxes
+        ]
 
     @abc.abstractmethod
     def _get_selection_key(self, bounding_box: BoundingBox) -> float:

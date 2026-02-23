@@ -34,13 +34,18 @@ class BoundingBoxesService:
             )
 
             while True:
-                ret, frame = video_meta.video_capture.read()
-                if not ret:
+                # grab() はデコードせずにフレームポインタを進めるだけなので、
+                # スキップフレームのデコードコストをゼロにできる
+                if not video_meta.video_capture.grab():
                     break
 
                 if idx % video_meta.sampling_step != 0:
                     idx += 1
                     continue
+
+                ret, frame = video_meta.video_capture.retrieve()
+                if not ret:
+                    break
 
                 bounding_box = frame_processor(frame)
                 bounding_boxes.append(bounding_box)

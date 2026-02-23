@@ -24,7 +24,11 @@ def edit_movie_controller(
         _run_edit_movie(str(path), is_ignore_head_detect)
 
     elif path.is_dir():
-        video_files = [f for f in path.iterdir()]
+        video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv"}
+        video_files = [
+            f for f in path.iterdir()
+            if f.is_file() and f.suffix.lower() in video_extensions
+        ]
 
         if not video_files:
             logger.warning(f"target path is invalid: {target_path}")

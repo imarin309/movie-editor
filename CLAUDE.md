@@ -137,7 +137,15 @@ poetry run mypy .
 
 ```mermaid
 flowchart TD
-    Start([開始]) --> End([終了])
+    Start([入力動画]) --> LoadVideo[動画読み込み<br/>VideoFileClip]
+    LoadVideo --> DetectHands[手の検出<br/>MediaPipe解析]
+    DetectHands --> GenerateMask[ブール値マスク生成<br/>手あり/なしフレーム]
+    GenerateMask --> CreateSegments[時間セグメント生成<br/>短いセグメント除外・結合]
+    CreateSegments --> ClampSegments[セグメント調整<br/>動画長さ内にクランプ]
+    ClampSegments --> CropVideo[動画クロップ<br/>手を中心に配置]
+    CropVideo --> Concatenate[クリップ結合<br/>最終動画組み立て]
+    Concatenate --> Export[エクスポート<br/>H.264/AAC]
+    Export --> End([出力動画])
 ```
 
 ## 重要な注意事項
@@ -157,6 +165,12 @@ flowchart TD
   - できるだけ変数名や関数名で処理がわかるようにして、処理内容のコメントは省いてください。処理内容から実装の背景がわからないものについてコメントを記載するようにしてください。
 - 依存関係を次のようにしてください
   - command.py -> edit_movie.py -> service/ -> model/
+
+## Git 運用ルール
+
+- **main ブランチへの直接コミットは厳禁**
+- 作業は必ずフィーチャーブランチを切って行うこと
+- コミットは PR 経由で main にマージする
 
 ## その他
 
