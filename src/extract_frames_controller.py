@@ -20,7 +20,8 @@ def extract_frames_controller(
         raise NotADirectoryError(f"Directory not found: {input_dir}")
 
     video_files = [
-        f for f in input_path.rglob("*")
+        f
+        for f in input_path.rglob("*")
         if f.is_file() and f.suffix.lower() in _VIDEO_EXTENSIONS
     ]
 

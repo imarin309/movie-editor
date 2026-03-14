@@ -36,11 +36,13 @@ class MotionScoreService:
         for segment in segments:
             start_idx = max(0, min(int(segment.start * effective_fps), n))
             end_idx = max(0, min(int(segment.end * effective_fps), n))
-            segment_motions = [
-                frame_motions[i] for i in range(start_idx, end_idx)
-            ]
-            score = sum(segment_motions) / len(segment_motions) if segment_motions else 0.0
-            result.append(Segment(start=segment.start, end=segment.end, motion_score=score))
+            segment_motions = [frame_motions[i] for i in range(start_idx, end_idx)]
+            score = (
+                sum(segment_motions) / len(segment_motions) if segment_motions else 0.0
+            )
+            result.append(
+                Segment(start=segment.start, end=segment.end, motion_score=score)
+            )
 
         return result
 
