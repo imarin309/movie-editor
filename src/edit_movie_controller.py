@@ -6,14 +6,12 @@ from src.edit_movie import EditMovie
 logger = logging.getLogger(__name__)
 
 
-def _run_edit_movie(input_movie_path: str, is_ignore_head_detect: bool) -> None:
-    edit_movie = EditMovie(input_movie_path, is_ignore_head_detect)
+def _run_edit_movie(input_movie_path: str) -> None:
+    edit_movie = EditMovie(input_movie_path)
     edit_movie.run()
 
 
-def edit_movie_controller(
-    target_path: str, is_ignore_head_detect: bool = False
-) -> None:
+def edit_movie_controller(target_path: str) -> None:
     path = Path(target_path)
 
     if not path.exists():
@@ -21,12 +19,13 @@ def edit_movie_controller(
 
     if path.is_file():
         logger.info(f"[1/1]exe:  {target_path}")
-        _run_edit_movie(str(path), is_ignore_head_detect)
+        _run_edit_movie(str(path))
 
     elif path.is_dir():
         video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv"}
         video_files = [
-            f for f in path.iterdir()
+            f
+            for f in path.iterdir()
             if f.is_file() and f.suffix.lower() in video_extensions
         ]
 
@@ -36,7 +35,7 @@ def edit_movie_controller(
 
         for idx, video_file in enumerate(video_files, start=1):
             logger.info(f"[{idx}/{len(video_files)}]exe:  {video_file}")
-            _run_edit_movie(str(video_file), is_ignore_head_detect)
+            _run_edit_movie(str(video_file))
         logger.info("complete")
     else:
         raise ValueError(f"target_path is invalid: {target_path}")

@@ -5,5 +5,7 @@
 # movie
 *.mp4
 *.png
+*.jpg
 
 *test*.py
+
