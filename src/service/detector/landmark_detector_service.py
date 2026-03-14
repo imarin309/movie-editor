@@ -87,9 +87,11 @@ class LandmarkDetectorService(LandmarkDetectorAbstract):
 
         self._make_bounding_boxes()
         return [
-            self._select_best_detection(bb) is not None
-            if isinstance(bb, list)
-            else False
+            (
+                self._select_best_detection(bb) is not None
+                if isinstance(bb, list)
+                else False
+            )
             for bb in self.bounding_boxes
         ]
 

@@ -109,4 +109,7 @@ class SegmentService:
 
     @staticmethod
     def _add_padding(segments: List[Segment]) -> List[Segment]:
-        return [Segment(max(0.0, s.start - config.PAD_SEC), s.end + config.PAD_SEC) for s in segments]
+        return [
+            Segment(max(0.0, s.start - config.PAD_SEC), s.end + config.PAD_SEC)
+            for s in segments
+        ]

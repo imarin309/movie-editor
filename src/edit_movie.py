@@ -6,12 +6,7 @@ from moviepy import VideoClip, VideoFileClip, concatenate_videoclips, vfx
 
 import config
 from src.model import Config, Segment, VideoMetaData
-from src.service import (
-    HandDetectorService,
-    HeadDetectorService,
-    SegmentService,
-    VideoService,
-)
+from src.service import HandDetectorService, SegmentService, VideoService
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -23,7 +18,6 @@ class EditMovie:
 
     input_movie_path: str
     output_movie_path: str
-    is_ignore_head_detect: bool
     config: Config
 
     source_clip: VideoFileClip
@@ -31,22 +25,17 @@ class EditMovie:
     video_meta: VideoMetaData
 
     hand_detector: HandDetectorService
-    head_detector: HeadDetectorService
 
     hand_mask: List[bool]
-    head_mask: List[bool]
-    combined_mask: List[bool]
-
     segments: List[Segment]
 
     output_movie: VideoClip
 
-    def __init__(self, input_movie_path: str, is_ignore_head_detect: bool) -> None:
+    def __init__(self, input_movie_path: str) -> None:
         self.input_movie_path = input_movie_path
         input_path = Path(input_movie_path)
         output_filename = f"{input_path.stem}_edited{input_path.suffix}"
         self.output_movie_path = str(input_path.parent / output_filename)
-        self.is_ignore_head_detect = is_ignore_head_detect
 
         logger.info(f"Input: {self.input_movie_path}")
         logger.info(f"Output: {self.output_movie_path}")
@@ -63,7 +52,6 @@ class EditMovie:
         self.duration = self.source_clip.duration
 
     def _detect_hand(self) -> None:
-        """手と顔を検出し、手があり顔がないフレームのマスクを生成"""
         logger.info("手のフレームを検出")
         hand_video_meta = VideoService.get_video_meta(
             self.input_movie_path, self.config.fps_sample
@@ -75,22 +63,6 @@ class EditMovie:
             video_meta=hand_video_meta,
         )
         self.hand_mask = self.hand_detector.extract_mask()
-
-    def _detect_head(self) -> None:
-        head_video_meta = VideoService.get_video_meta(
-            self.input_movie_path, self.config.fps_sample
-        )
-        self.head_detector = HeadDetectorService(
-            config=self.config,
-            video_meta=head_video_meta,
-        )
-        self.head_mask = self.head_detector.extract_head_mask()
-
-    def _combined_mask(self) -> None:
-        self.combined_mask = [
-            has_hand and not has_head
-            for has_hand, has_head in zip(self.hand_mask, self.head_mask)
-        ]
 
     def _make_segment(self, mask: List[bool]) -> None:
         segments = SegmentService.create_segments_from_mask(
@@ -132,13 +104,7 @@ class EditMovie:
 
         self._setup()
         self._detect_hand()
-        if not self.is_ignore_head_detect:
-            self._detect_head()
-            self._combined_mask()
-            mask = self.combined_mask
-        else:
-            mask = self.hand_mask
-        self._make_segment(mask)
+        self._make_segment(self.hand_mask)
         if not self.segments:
             logger.info("対象物が検出されませんでした。終了します。")
             return

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
 
 @dataclass
@@ -11,6 +12,7 @@ class Segment:
     Attributes:
         start: 区間の開始時刻（秒）
         end: 区間の終了時刻（秒）
+        motion_score: セグメントの手の動き量スコア（省略可能）
 
     Example:
         >>> segment = Segment(start=10.5, end=25.3)
@@ -19,3 +21,4 @@ class Segment:
 
     start: float
     end: float
+    motion_score: Optional[float] = field(default=None)
