@@ -35,7 +35,9 @@ class EditMovie:
         self.input_movie_path = input_movie_path
         input_path = Path(input_movie_path)
         output_filename = f"{input_path.stem}_edited{input_path.suffix}"
-        self.output_movie_path = str(input_path.parent / output_filename)
+        output_dir = Path(__file__).parents[1] / "output" / "movie"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_movie_path = str(output_dir / output_filename)
 
         logger.info(f"Input: {self.input_movie_path}")
         logger.info(f"Output: {self.output_movie_path}")
