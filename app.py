@@ -27,9 +27,7 @@ def _run_with_log_stream(
 ) -> None:
     q: queue.Queue[str | None] = queue.Queue()
     handler = _QueueHandler(q)
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     root = logging.getLogger()
     root.addHandler(handler)
 
@@ -65,7 +63,6 @@ def _run_with_log_stream(
         st.error(f"エラー: {error_holder[0]}")
     else:
         st.success("完了しました")
-
 
 
 def _edit_sliders(key_prefix: str) -> dict[str, float | int]:
