@@ -6,6 +6,14 @@
 poetry install
 ```
 
+## Streamlit UI
+
+GUIで操作したい場合は以下のコマンドで起動します。ブラウザが自動で開きます。
+
+```
+poetry run streamlit run app.py
+```
+
 ## コマンド一覧
 
 ### edit - 動画編集
