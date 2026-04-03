@@ -1,4 +1,4 @@
-# movie_editor
+# packy
 
 ## setup
 

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "movie-editer"
+name = "packy"
 version = "0.1.0"
 description = ""
 authors = ["imarin309 <16imarin309@gmail.com>"]
