@@ -7,7 +7,6 @@ from src.service import FrameExtractService
 logger = logging.getLogger(__name__)
 
 _VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv"}
-_OUTPUT_DIR = Path(__file__).parents[1] / "output" / "image"
 
 
 def extract_frames_controller(
@@ -30,7 +29,7 @@ def extract_frames_controller(
         return
 
     for idx, video_file in enumerate(video_files, start=1):
-        output_dir = _OUTPUT_DIR
+        output_dir = input_path / "output" / "image"
         logger.info(f"[{idx}/{len(video_files)}] {video_file.name} -> {output_dir}")
         saved = FrameExtractService.extract_frames(
             input_movie_path=str(video_file),

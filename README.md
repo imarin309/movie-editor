@@ -25,7 +25,11 @@ poetry run python command.py edit {input_path}
 ```
 
 - `input_path`: 動画ファイルまたはディレクトリを指定。ディレクトリの場合は配下の動画ファイルをすべて処理します。
-- 出力ファイルは `output/movie/{ファイル名}_edited.{拡張子}` として生成されます（例: `video.mp4` → `output/movie/video_edited.mp4`）。
+- 出力ファイルは入力ファイルと同じディレクトリの `output/movie/` 配下に生成されます。
+
+  ```
+  /path/to/video.mp4  →  /path/to/output/movie/video.mp4
+  ```
 
 ### extract-frames - フレーム抽出
 
@@ -36,7 +40,11 @@ poetry run python command.py extract-frames {input_path} [--interval N] [--windo
 ```
 
 - `input_path`: 動画ファイルが含まれるディレクトリを指定。サブディレクトリも再帰的に処理します。
-- 出力先: `output/image/`
+- 抽出した画像は入力ディレクトリの `output/image/` 配下に保存されます。
+
+  ```
+  /path/to/dir/  →  /path/to/dir/output/image/frame_000000.jpg
+  ```
 
 | オプション | デフォルト | 説明 |
 |---|---|---|
@@ -52,7 +60,12 @@ poetry run python command.py edit-and-extract {input_path} [--interval N] [--win
 ```
 
 - `input_path`: 動画ファイルまたはディレクトリを指定。
-- 編集済み動画は `output/movie/`、抽出フレームは `output/image/` に出力されます。
+- 編集済み動画・抽出フレームともに、入力ファイルの親ディレクトリ配下に出力されます。
+
+  ```
+  /path/to/video.mp4  →  /path/to/output/movie/video.mp4
+                          /path/to/output/image/frame_000000.jpg
+  ```
 
 | オプション | デフォルト | 説明 |
 |---|---|---|
