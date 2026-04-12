@@ -23,8 +23,7 @@ def extract_frames_controller(
     video_files = [
         f
         for f in input_path.rglob("*")
-        if f.is_file()
-        and f.suffix.lower() in _VIDEO_EXTENSIONS
+        if f.is_file() and f.suffix.lower() in _VIDEO_EXTENSIONS
         # output/ 配下の生成物を除外
         and not f.is_relative_to(output_root)
     ]
