@@ -34,8 +34,8 @@ class EditMovie:
     def __init__(self, input_movie_path: str) -> None:
         self.input_movie_path = input_movie_path
         input_path = Path(input_movie_path)
-        output_filename = f"{input_path.stem}_edited{input_path.suffix}"
-        output_dir = Path(__file__).parents[1] / "output" / "movie"
+        output_filename = f"{input_path.stem}{input_path.suffix}"
+        output_dir = input_path.parent / "output" / "movie"
         output_dir.mkdir(parents=True, exist_ok=True)
         self.output_movie_path = str(output_dir / output_filename)
 

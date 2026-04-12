@@ -7,7 +7,6 @@ from src.service import FrameExtractService
 logger = logging.getLogger(__name__)
 
 _VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv"}
-_OUTPUT_DIR = Path(__file__).parents[1] / "output" / "image"
 
 
 def extract_frames_controller(
@@ -19,10 +18,14 @@ def extract_frames_controller(
     if not input_path.exists() or not input_path.is_dir():
         raise NotADirectoryError(f"Directory not found: {input_dir}")
 
+    output_root = input_path / "output"
+    output_dir = output_root / "image"
     video_files = [
         f
         for f in input_path.rglob("*")
         if f.is_file() and f.suffix.lower() in _VIDEO_EXTENSIONS
+        # output/ 配下の生成物を除外
+        and not f.is_relative_to(output_root)
     ]
 
     if not video_files:
@@ -30,7 +33,6 @@ def extract_frames_controller(
         return
 
     for idx, video_file in enumerate(video_files, start=1):
-        output_dir = _OUTPUT_DIR
         logger.info(f"[{idx}/{len(video_files)}] {video_file.name} -> {output_dir}")
         saved = FrameExtractService.extract_frames(
             input_movie_path=str(video_file),
