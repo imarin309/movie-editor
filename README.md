@@ -8,9 +8,16 @@ poetry install
 
 手の検出に使用する MediaPipe のモデルファイルをダウンロードします。
 
-```
+**macOS / Linux**
+```bash
 curl -L "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task" \
   -o models/hand_landmarker.task --create-dirs
+```
+
+**Windows (PowerShell)**
+```powershell
+New-Item -ItemType Directory -Force -Path models | Out-Null
+Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task" -OutFile "models\hand_landmarker.task"
 ```
 
 ## Streamlit UI
