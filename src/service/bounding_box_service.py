@@ -16,8 +16,8 @@ class BoundingBoxService:
         Returns:
             計算されたバウンディングボックス
         """
-        x_coords = [lm.x for lm in landmarks.landmark]
-        y_coords = [lm.y for lm in landmarks.landmark]
+        x_coords = [lm.x for lm in landmarks]
+        y_coords = [lm.y for lm in landmarks]
 
         x_min, x_max = min(x_coords), max(x_coords)
         y_min, y_max = min(y_coords), max(y_coords)

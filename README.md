@@ -6,6 +6,13 @@
 poetry install
 ```
 
+手の検出に使用する MediaPipe のモデルファイルをダウンロードします。
+
+```
+curl -L "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task" \
+  -o models/hand_landmarker.task --create-dirs
+```
+
 ## Streamlit UI
 
 GUIで操作したい場合は以下のコマンドで起動します。ブラウザが自動で開きます。
