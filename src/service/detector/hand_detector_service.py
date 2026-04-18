@@ -1,12 +1,19 @@
+import os
 from typing import Any, List, Optional
 
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python as mp_python
+from mediapipe.tasks.python import vision as mp_vision
 
 from src.model import BoundingBox, Config, VideoMetaData
 from src.service.bounding_box_service import BoundingBoxService
 from src.service.detector.const import MAX_DETECT_WIDTH, MIN_CONFIDENCE
 from src.service.detector.landmark_detector_service import LandmarkDetectorService
+
+_MODEL_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../../models/hand_landmarker.task")
+)
 
 
 class HandDetectorService(LandmarkDetectorService):
@@ -15,49 +22,31 @@ class HandDetectorService(LandmarkDetectorService):
         super().__init__(config, video_meta)
 
     def _create_detector(self) -> Any:
-        """
-        MediaPipe Hands検出器を作成する。
-
-        Args:
-            min_conf: 最小信頼度
-
-        Returns:
-            MediaPipe Hands検出器インスタンス
-        """
-        mp_hands = mp.solutions.hands
-        return mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=MIN_CONFIDENCE,
+        base_options = mp_python.BaseOptions(model_asset_path=_MODEL_PATH)
+        options = mp_vision.HandLandmarkerOptions(
+            base_options=base_options,
+            num_hands=2,
+            min_hand_detection_confidence=MIN_CONFIDENCE,
+            min_hand_presence_confidence=MIN_CONFIDENCE,
             min_tracking_confidence=MIN_CONFIDENCE,
         )
+        return mp_vision.HandLandmarker.create_from_options(options)
 
     def _make_bounding_box(self, frame: Any) -> Optional[List[BoundingBox]]:
-        """
-        フレームから手を検出してバウンディングボックスのリストを生成する。
-
-        Args:
-            frame: BGRフレーム
-
-        Returns:
-            手のバウンディングボックスのリスト、または検出されなかった場合はNone
-        """
         h, w = frame.shape[:2]
         if w > MAX_DETECT_WIDTH:
             frame = cv2.resize(frame, (MAX_DETECT_WIDTH, int(h * MAX_DETECT_WIDTH / w)))
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = self.detector.process(rgb)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = self.detector.detect(mp_image)
 
-        if result.multi_hand_landmarks and result.multi_handedness:
+        if result.hand_landmarks:
             return [
                 BoundingBoxService.calculate_from_landmarks(hand_landmarks)
-                for hand_landmarks in result.multi_hand_landmarks
+                for hand_landmarks in result.hand_landmarks
             ]
         return None
 
     def _get_selection_key(self, bounding_box: BoundingBox) -> float:
-        """
-        手の選択基準値を返す。
-        右側の手を優先するため、x座標の中心を返す。
-        """
+        """右側の手を優先するため、x座標の中心を返す。"""
         return bounding_box.center_x

@@ -9,3 +9,5 @@
 
 *test*.py
 
+# mediapipe models
+models/
