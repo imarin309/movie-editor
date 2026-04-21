@@ -64,7 +64,9 @@ class FrameExtractService:
                     # cv2.imwrite はWindowsで非ASCII文字を含むパスで無音失敗するため imencode+write_bytes を使う
                     ok, buf = cv2.imencode(".jpg", best_frame)
                     if not ok:
-                        logger.warning(f"フレームのエンコードに失敗しました: {output_path}")
+                        logger.warning(
+                            f"フレームのエンコードに失敗しました: {output_path}"
+                        )
                         continue
                     output_path.write_bytes(buf.tobytes())
                     saved_paths.append(output_path)
