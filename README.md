@@ -36,6 +36,9 @@ poetry run streamlit run app.py
 
 ```
 poetry run python command.py edit {input_path}
+
+# 例
+poetry run python command.py edit data
 ```
 
 - `input_path`: 動画ファイルまたはディレクトリを指定。ディレクトリの場合は配下の動画ファイルをすべて処理します。
@@ -51,6 +54,9 @@ poetry run python command.py edit {input_path}
 
 ```
 poetry run python command.py extract-frames {input_path} [--interval N] [--window N]
+
+# 例
+poetry run python command.py extract-frames data
 ```
 
 - `input_path`: 動画ファイルが含まれるディレクトリを指定。サブディレクトリも再帰的に処理します。
@@ -71,6 +77,9 @@ poetry run python command.py extract-frames {input_path} [--interval N] [--windo
 
 ```
 poetry run python command.py edit-and-extract {input_path} [--interval N] [--window N]
+
+# example
+poetry run python command.py edit-and-extract data
 ```
 
 - `input_path`: 動画ファイルまたはディレクトリを指定。
