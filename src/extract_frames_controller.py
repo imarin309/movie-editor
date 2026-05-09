@@ -19,7 +19,6 @@ def extract_frames_controller(
         raise NotADirectoryError(f"Directory not found: {input_dir}")
 
     output_root = input_path / "output"
-    output_dir = output_root / "image"
     video_files = [
         f
         for f in input_path.rglob("*")
@@ -33,6 +32,7 @@ def extract_frames_controller(
         return
 
     for idx, video_file in enumerate(video_files, start=1):
+        output_dir = output_root / "image" / video_file.stem
         logger.info(f"[{idx}/{len(video_files)}] {video_file.name} -> {output_dir}")
         saved = FrameExtractService.extract_frames(
             input_movie_path=str(video_file),

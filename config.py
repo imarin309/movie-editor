@@ -6,7 +6,7 @@
 SAMPLING_FPS: int = 5
 CENTER_POSTION_X: float = 0.7
 CENTER_DETECTION_RATIO: float = 0.3
-MOVIE_SPEED = 3
+MOVIE_SPEED = 1
 
 # セグメント処理の設定
 MIN_KEEP_SEC: float = 1.0

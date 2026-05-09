@@ -65,11 +65,10 @@ def main() -> None:
         )
     elif args.command == "edit-and-extract":
         edit_movie_controller(args.input_path)
-        # extract-frames はディレクトリのみ対応のため、ファイル指定時は親ディレクトリを渡す
         input_path = Path(args.input_path)
-        extract_dir = str(input_path.parent if input_path.is_file() else input_path)
+        input_dir = input_path.parent if input_path.is_file() else input_path
         extract_frames_controller(
-            input_dir=extract_dir,
+            input_dir=str(input_dir / "output" / "movie"),
             interval_sec=args.interval,
             search_window_sec=args.window,
         )
