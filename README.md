@@ -20,14 +20,6 @@ New-Item -ItemType Directory -Force -Path models | Out-Null
 Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task" -OutFile "models\hand_landmarker.task"
 ```
 
-## Streamlit UI
-
-GUIで操作したい場合は以下のコマンドで起動します。ブラウザが自動で開きます。
-
-```
-poetry run streamlit run app.py
-```
-
 ## コマンド一覧
 
 ### edit - 動画編集

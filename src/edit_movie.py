@@ -83,7 +83,7 @@ class EditMovie:
             if end > start:
                 clips.append(self.source_clip.subclipped(start, end))
 
-        self.output_movie = concatenate_videoclips(clips, method="compose")
+        self.output_movie = concatenate_videoclips(clips, method="chain")
 
     def _output(self) -> None:
         self.output_movie.write_videofile(
@@ -111,6 +111,7 @@ class EditMovie:
             logger.info("対象物が検出されませんでした。終了します。")
             return
         self._concat_movie()
-        self._change_speed()
+        if self.config.movie_speed != 1:
+            self._change_speed()
         self._output()
         self._clean()

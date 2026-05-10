@@ -19,29 +19,34 @@ poetry install
 ### ツールの実行
 
 ```bash
-poetry run python command.py {input_movie_path}
-```
+# 動画編集
+poetry run python command.py edit {input_path}
 
-出力ファイルは自動的に `{input_movie_path}_edited.{拡張子}` として生成されます（例: `video.mp4` → `video_edited.mp4`）。
+# フレーム抽出
+poetry run python command.py extract-frames {input_path} [--interval N] [--window N]
+
+# 動画編集 + フレーム抽出
+poetry run python command.py edit-and-extract {input_path} [--interval N] [--window N]
+```
 
 ### 設定
 
 すべての処理パラメータは `config.py` で定義されています：
 
 **MediaPipe手検出の設定:**
-- `DEFAULT_FPS_SAMPLE`: 解析時のサンプリングFPS (デフォルト: 15)
-- `DEFAULT_MIN_CONFIDENCE`: MediaPipeの最小信頼度 0-1 (デフォルト: 0.5)
-- `DEFAULT_MIN_AREA_RATIO`: 最小の手のバウンディングボックス面積 / フレーム面積 (デフォルト: 0.003 = 0.3%)
+- `SAMPLING_FPS`: 解析時のサンプリングFPS (デフォルト: 1)
+- `MIN_CONFIDENCE`: MediaPipeの最小信頼度 0-1 (`src/service/detector/const.py`, デフォルト: 0.5)
+- `MIN_TARGET_AREA`: 最小の手のバウンディングボックス面積 / フレーム面積 (`src/service/detector/const.py`, デフォルト: 0.05)
 
 **セグメント処理の設定:**
-- `DEFAULT_MIN_KEEP_SEC`: この秒数より短いセグメントを除外 (デフォルト: 1.0)
-- `DEFAULT_MERGE_GAP_SEC`: 小さな隙間で区切られたセグメントを結合する秒数 (デフォルト: 0.25)
-- `DEFAULT_PAD_SEC`: 各セグメントの前後に追加するパディング秒数 (デフォルト: 0.3)
+- `MIN_KEEP_SEC`: この秒数より短いセグメントを除外 (デフォルト: 1.0)
+- `MERGE_GAP_SEC`: 小さな隙間で区切られたセグメントを結合する秒数 (デフォルト: 0.25)
+- `PAD_SEC`: 各セグメントの前後に追加するパディング秒数 (デフォルト: 1.2)
 
-**クロップ位置の設定:**
-- `DEFAULT_CROP_HAND_HORIZONTAL_RATIO`: 手を画面の左から何%の位置に配置するか (デフォルト: 0.7 = 右寄り、0.5 = 中央)
-- `DEFAULT_CROP_HAND_VERTICAL_RATIO`: 手を画面の上から何%の位置に配置するか (デフォルト: 0.5 = 中央)
-- `DEFAULT_SMOOTH_WINDOW_SIZE`: 手の位置スムージングの移動平均ウィンドウサイズ (デフォルト: 7)
+**その他の設定:**
+- `CENTER_POSTION_X`: 手を画面の左から何%の位置に配置するか (デフォルト: 0.7 = 右寄り、0.5 = 中央)
+- `CENTER_DETECTION_RATIO`: 対象物の検出区間の比率 (デフォルト: 0.3)
+- `MOVIE_SPEED`: 出力動画の再生速度倍率 (デフォルト: 1)
 
 パラメータを変更したい場合は、`config.py` を直接編集してください。
 
