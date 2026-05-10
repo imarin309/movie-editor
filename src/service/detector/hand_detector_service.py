@@ -25,7 +25,7 @@ class HandDetectorService(LandmarkDetectorService):
         base_options = mp_python.BaseOptions(model_asset_path=_MODEL_PATH)
         options = mp_vision.HandLandmarkerOptions(
             base_options=base_options,
-            num_hands=2,
+            num_hands=1,
             min_hand_detection_confidence=MIN_CONFIDENCE,
             min_hand_presence_confidence=MIN_CONFIDENCE,
             min_tracking_confidence=MIN_CONFIDENCE,
