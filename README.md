@@ -63,6 +63,36 @@ poetry run python command.py extract-frames data
 | `--interval` | 5 | フレーム抽出間隔（秒） |
 | `--window` | 1.0 | 手ブレ回避のための探索ウィンドウ幅（秒） |
 
+### split-frames - 均等分割フレーム抽出
+
+1本の動画をN等分し、各区間から手ブレが少ないフレームを1枚ずつ画像として保存します。
+36枚フィルムのように動画全体を均等にカバーした画像セットを作りたい場合に使います。
+
+```
+poetry run python command.py split-frames {input_path} [--count N]
+
+# 例（デフォルト36枚）
+poetry run python command.py split-frames data/video.mp4
+
+# 枚数を指定する場合
+poetry run python command.py split-frames data/video.mp4 --count 24
+```
+
+- `input_path`: 動画ファイルを直接指定します。
+- 抽出した画像は動画ファイルと同じディレクトリの `output/image/{動画名}/` 配下に保存されます。
+
+  ```
+  /path/to/video.mp4  →  /path/to/output/image/video/frame_001.jpg
+                          /path/to/output/image/video/frame_002.jpg
+                          ...
+                          /path/to/output/image/video/frame_036.jpg
+  ```
+
+| オプション | デフォルト | 説明 |
+|---|---|---|
+| `--count` | 36 | 分割枚数 |
+| `--crop` | 1.0 | 横幅中央からクロップする比率（例: `0.6` で中央60%） |
+
 ### edit-and-extract - 動画編集 + フレーム抽出
 
 動画を編集してからフレームを抽出します。`edit` と `extract-frames` を連続して実行します。
