@@ -6,7 +6,9 @@ from moviepy import VideoClip, VideoFileClip, concatenate_videoclips, vfx
 
 import config
 from src.model import Config, Segment, VideoMetaData
-from src.service import HandDetectorService, SegmentService, VideoService
+from src.service import FrameDiffService, SegmentService, VideoService
+
+# from src.service import HandDetectorService
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -24,9 +26,8 @@ class EditMovie:
     duration: float
     video_meta: VideoMetaData
 
-    hand_detector: HandDetectorService
-
-    hand_mask: List[bool]
+    # hand_mask: List[bool]  # Step2 ポーズ検出で再利用予定
+    active_mask: List[bool]
     segments: List[Segment]
 
     output_movie: VideoClip
@@ -53,18 +54,25 @@ class EditMovie:
         self.source_clip = VideoFileClip(self.input_movie_path)
         self.duration = self.source_clip.duration
 
-    def _detect_hand(self) -> None:
-        logger.info("手のフレームを検出")
-        hand_video_meta = VideoService.get_video_meta(
+    def _detect_active(self) -> None:
+
+        # TODO: 安定したら手のフレーム検出処理を削除
+        # logger.info("手のフレームを検出")
+        # hand_video_meta = VideoService.get_video_meta(
+        #     self.input_movie_path, self.config.fps_sample
+        # )
+        # self.video_meta = hand_video_meta
+        # hand_detector = HandDetectorService(config=self.config, video_meta=hand_video_meta)
+        # self.hand_mask = hand_detector.extract_mask()
+
+        logger.info("動きフレームを検出")
+        motion_video_meta = VideoService.get_video_meta(
             self.input_movie_path, self.config.fps_sample
         )
-        # TODO: video_metaの変数を共通化する
-        self.video_meta = hand_video_meta
-        self.hand_detector = HandDetectorService(
-            config=self.config,
-            video_meta=hand_video_meta,
-        )
-        self.hand_mask = self.hand_detector.extract_mask()
+        self.video_meta = motion_video_meta
+        self.active_mask = FrameDiffService.extract_mask(motion_video_meta)
+
+        # self.active_mask = [h or m for h, m in zip(self.hand_mask, self.active_mask)]
 
     def _make_segment(self, mask: List[bool]) -> None:
         segments = SegmentService.create_segments_from_mask(
@@ -105,8 +113,8 @@ class EditMovie:
     def run(self) -> None:
 
         self._setup()
-        self._detect_hand()
-        self._make_segment(self.hand_mask)
+        self._detect_active()
+        self._make_segment(self.active_mask)
         if not self.segments:
             logger.info("対象物が検出されませんでした。終了します。")
             return
